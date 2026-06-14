@@ -26,7 +26,7 @@ func TestCompress_responseGzip(t *testing.T) {
 	require.NoError(t, err)
 
 	e := echo.New()
-	e.Use(Compress(logger.NewNopLogger(), comp))
+	e.Use(CompressMiddleware(logger.NewNopLogger(), comp))
 	e.GET("/", func(c echo.Context) error {
 		return c.Blob(http.StatusOK, "application/json", []byte(`{"ok":true}`))
 	})
@@ -53,7 +53,7 @@ func TestCompress_requestGzip(t *testing.T) {
 
 	var got string
 	e := echo.New()
-	e.Use(Compress(logger.NewNopLogger(), comp))
+	e.Use(CompressMiddleware(logger.NewNopLogger(), comp))
 	e.POST("/", func(c echo.Context) error {
 		b, err := io.ReadAll(c.Request().Body)
 		if err != nil {
