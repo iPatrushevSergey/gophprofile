@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLogger(t *testing.T) {
+func TestLoggerMiddleware(t *testing.T) {
 	e := echo.New()
-	e.Use(Logger(logger.NewNopLogger(), nil))
+	e.Use(LoggerMiddleware(logger.NewNopLogger(), nil))
 	e.POST("/", func(c echo.Context) error {
 		return c.Blob(http.StatusOK, "text/plain", []byte("ok"))
 	})
