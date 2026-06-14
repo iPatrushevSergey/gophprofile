@@ -24,8 +24,8 @@ type LogParams struct {
 	ResponseBody *bytes.Buffer
 }
 
-// Logger is HTTP request logging middleware with injected formatter.
-func Logger(log port.Logger, formatter LogFormatter) echo.MiddlewareFunc {
+// LoggerMiddleware is HTTP request logging middleware with injected formatter.
+func LoggerMiddleware(log port.Logger, formatter LogFormatter) echo.MiddlewareFunc {
 	if formatter == nil {
 		formatter = &DefaultLogFormatter{}
 	}
