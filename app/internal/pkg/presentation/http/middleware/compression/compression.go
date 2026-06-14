@@ -17,8 +17,8 @@ type Compressor interface {
 	NewWriter(w io.Writer) io.WriteCloser
 }
 
-// Compress middleware supporting multiple compression strategies.
-func Compress(log port.Logger, compressors ...Compressor) echo.MiddlewareFunc {
+// CompressMiddleware supporting multiple compression strategies.
+func CompressMiddleware(log port.Logger, compressors ...Compressor) echo.MiddlewareFunc {
 	encodingToCompressor := make(map[string]Compressor)
 	for _, compressor := range compressors {
 		encodingToCompressor[compressor.ContentEncoding()] = compressor
