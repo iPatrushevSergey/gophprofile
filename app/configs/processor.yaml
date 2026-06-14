@@ -1,0 +1,30 @@
+logger:
+  level: info
+
+database:
+  uri: ""
+  max_conns: 10
+  min_conns: 2
+  max_conn_life: "1h"
+  max_conn_idle: "30m"
+  health_check: "1m"
+  retry:
+    max_retries: 3
+    base_delay: "100ms"
+    max_delay: "2s"
+
+minio:
+  endpoint: ""
+  public_endpoint: ""
+  access_key: ""
+  secret_key: ""
+  bucket: gophprofile
+  use_ssl: false
+
+broker:
+  url: ""
+  exchange: avatars
+  queue: avatar-processing
+
+worker:
+  shutdown_timeout: "10s"
