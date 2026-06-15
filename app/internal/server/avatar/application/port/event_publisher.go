@@ -1,0 +1,13 @@
+package port
+
+import (
+	"context"
+
+	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
+)
+
+// EventPublisher publishes avatar lifecycle events to a message broker.
+type EventPublisher interface {
+	PublishAvatarUploaded(ctx context.Context, event dto.AvatarUploadedEvent) error
+	PublishAvatarDeleted(ctx context.Context, event dto.AvatarDeletedEvent) error
+}
