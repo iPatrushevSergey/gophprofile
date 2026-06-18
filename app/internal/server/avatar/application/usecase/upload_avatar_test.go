@@ -31,17 +31,18 @@ func TestUploadAvatar_Execute(t *testing.T) {
 
 		idGen.EXPECT().NewID().Return("avatar-1", nil)
 		clock.EXPECT().Now().Return(now)
-		storage.EXPECT().Put(ctx, "user-1/avatar-1/original", []byte("image"), "image/png").Return(nil)
 		transactor.EXPECT().RunInTransaction(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
 		)
 		writer.EXPECT().Create(ctx, gomock.Any()).DoAndReturn(func(_ context.Context, avatar *entity.Avatar) error {
 			assert.Equal(t, "avatar-1", avatar.ID)
 			assert.Equal(t, "user-1", avatar.UserID)
-			assert.Equal(t, vo.UploadStatusCompleted, avatar.UploadStatus)
+			assert.Equal(t, vo.UploadStatusUploading, avatar.UploadStatus)
 			assert.Equal(t, vo.ProcessingStatusPending, avatar.ProcessingStatus)
 			return nil
 		})
+		storage.EXPECT().Put(ctx, "user-1/avatar-1/original", []byte("image"), "image/png").Return(nil)
+		writer.EXPECT().MarkUploadCompleted(ctx, "avatar-1", now).Return(nil)
 		outbox.EXPECT().EnqueueAvatarUploaded(ctx, dto.AvatarUploadedEvent{
 			AvatarID: "avatar-1",
 			UserID:   "user-1",
@@ -57,6 +58,7 @@ func TestUploadAvatar_Execute(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.Equal(t, "avatar-1", out.ID)
+		assert.Equal(t, vo.UploadStatusCompleted, out.UploadStatus)
 		assert.Equal(t, vo.ProcessingStatusPending, out.ProcessingStatus)
 	})
 
