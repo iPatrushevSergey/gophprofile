@@ -201,8 +201,12 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("minio.secret_key", "")
 	v.SetDefault("minio.bucket", "gophprofile")
 	v.SetDefault("minio.use_ssl", false)
+	v.SetDefault("minio.upload_reservation_ttl", "30m")
+	v.SetDefault("minio.upload_gc_interval", "5m")
 	v.SetDefault("broker.url", "")
 	v.SetDefault("broker.exchange", "avatars")
+	v.SetDefault("broker.publish_interval", "5s")
+	v.SetDefault("broker.outbox_batch_size", 100)
 }
 
 // readConfigFile reads the config file.
