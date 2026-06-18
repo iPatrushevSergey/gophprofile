@@ -45,11 +45,11 @@ func (uc *ExpireUploadingAvatars) Execute(ctx context.Context, _ struct{}) (stru
 	for _, avatar := range avatars {
 		if uc.avatarStorage != nil {
 			if err := uc.avatarStorage.Delete(ctx, avatar.S3Key); err != nil {
-				continue
+				return struct{}{}, err
 			}
 		}
 		if err := uc.avatarWriter.MarkUploadFailed(ctx, avatar.ID); err != nil {
-			continue
+			return struct{}{}, err
 		}
 	}
 
