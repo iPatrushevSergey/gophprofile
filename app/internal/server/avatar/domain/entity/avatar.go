@@ -23,11 +23,12 @@ type Avatar struct {
 	DeletedAt        *time.Time
 }
 
-// NewAvatar creates a new avatar with initial upload and processing statuses.
+// NewAvatar creates a new avatar with the given upload status.
 func NewAvatar(
 	id, userID, fileName, mimeType string,
 	sizeBytes int64,
 	s3Key string,
+	uploadStatus vo.UploadStatus,
 	now time.Time,
 ) *Avatar {
 	return &Avatar{
@@ -38,7 +39,7 @@ func NewAvatar(
 		SizeBytes:        sizeBytes,
 		S3Key:            s3Key,
 		ThumbnailS3Keys:  make(map[vo.ThumbnailSize]string),
-		UploadStatus:     vo.UploadStatusCompleted,
+		UploadStatus:     uploadStatus,
 		ProcessingStatus: vo.ProcessingStatusPending,
 		CreatedAt:        now,
 		UpdatedAt:        now,
