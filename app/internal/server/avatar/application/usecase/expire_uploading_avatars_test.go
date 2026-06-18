@@ -36,7 +36,7 @@ func TestExpireUploadingAvatars_Execute(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("skipsMarkFailedWhenDeleteFails", func(t *testing.T) {
+	t.Run("returnsErrorWhenDeleteFails", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		reader := portmocks.NewMockAvatarReader(ctrl)
 		writer := portmocks.NewMockAvatarWriter(ctrl)
@@ -49,6 +49,6 @@ func TestExpireUploadingAvatars_Execute(t *testing.T) {
 
 		uc := NewExpireUploadingAvatars(reader, writer, storage, clock, 30*time.Minute)
 		_, err := uc.Execute(ctx, struct{}{})
-		require.NoError(t, err)
+		require.EqualError(t, err, "storage unavailable")
 	})
 }
