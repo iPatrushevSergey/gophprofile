@@ -54,7 +54,16 @@ func (uc *UploadAvatar) Execute(ctx context.Context, in dto.UploadAvatarInput) (
 
 	now := uc.clock.Now()
 	s3Key := entity.OriginalObjectKey(in.UserID, id)
-	avatar := entity.NewUploadingAvatar(id, in.UserID, in.FileName, in.MimeType, int64(len(in.Content)), s3Key, now)
+	avatar := entity.NewAvatar(
+		id,
+		in.UserID,
+		in.FileName,
+		in.MimeType,
+		int64(len(in.Content)),
+		s3Key,
+		vo.UploadStatusUploading,
+		now,
+	)
 
 	if err := uc.avatarWriter.Create(ctx, avatar); err != nil {
 		return dto.UploadAvatarOutput{}, err
