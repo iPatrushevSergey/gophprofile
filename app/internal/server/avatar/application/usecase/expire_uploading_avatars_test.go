@@ -29,7 +29,7 @@ func TestExpireUploadingAvatars_Execute(t *testing.T) {
 		clock.EXPECT().Now().Return(now)
 		reader.EXPECT().ListExpiredUploading(ctx, now.Add(-30*time.Minute)).Return([]entity.Avatar{*avatar}, nil)
 		storage.EXPECT().Delete(ctx, "user-1/avatar-1/original").Return(nil)
-		writer.EXPECT().MarkUploadFailed(ctx, "avatar-1").Return(nil)
+		writer.EXPECT().MarkUploadFailed(ctx, "avatar-1", now).Return(nil)
 
 		uc := NewExpireUploadingAvatars(reader, writer, storage, clock, 30*time.Minute)
 		_, err := uc.Execute(ctx, struct{}{})
