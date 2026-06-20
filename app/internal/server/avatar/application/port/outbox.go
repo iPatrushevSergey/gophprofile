@@ -9,8 +9,8 @@ import (
 
 // OutboxWriter persists outbox records and marks them published.
 type OutboxWriter interface {
-	CreateUploaded(ctx context.Context, event dto.AvatarUploadedEvent) error
-	CreateDeleted(ctx context.Context, event dto.AvatarDeletedEvent) error
+	CreateUploaded(ctx context.Context, event dto.OutboxUploadedCreate) error
+	CreateDeleted(ctx context.Context, event dto.OutboxDeletedCreate) error
 	MarkPublished(ctx context.Context, id string, publishedAt time.Time) error
 }
 
