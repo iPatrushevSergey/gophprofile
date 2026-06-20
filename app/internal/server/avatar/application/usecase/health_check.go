@@ -14,26 +14,26 @@ const (
 
 // HealthCheck reports availability of infrastructure dependencies.
 type HealthCheck struct {
-	databaseHealth appport.DatabaseHealth
-	storageHealth  appport.StorageHealth
-	brokerHealth   appport.BrokerHealth
+	avatarRepo     appport.AvatarRepo
+	avatarStorage  appport.AvatarStorage
+	eventPublisher appport.EventPublisher
 }
 
 // NewHealthCheck returns the health check use case.
 func NewHealthCheck(
-	databaseHealth appport.DatabaseHealth,
-	storageHealth appport.StorageHealth,
-	brokerHealth appport.BrokerHealth,
-) appport.UseCase[dto.HealthCheckInput, dto.HealthCheckOutput] {
+	avatarRepo appport.AvatarRepo,
+	avatarStorage appport.AvatarStorage,
+	eventPublisher appport.EventPublisher,
+) appport.UseCase[struct{}, dto.HealthCheckOutput] {
 	return &HealthCheck{
-		databaseHealth: databaseHealth,
-		storageHealth:  storageHealth,
-		brokerHealth:   brokerHealth,
+		avatarRepo:     avatarRepo,
+		avatarStorage:  avatarStorage,
+		eventPublisher: eventPublisher,
 	}
 }
 
 // Execute checks database, object storage and broker.
-func (uc *HealthCheck) Execute(ctx context.Context, _ dto.HealthCheckInput) (dto.HealthCheckOutput, error) {
+func (uc *HealthCheck) Execute(ctx context.Context, _ struct{}) (dto.HealthCheckOutput, error) {
 	out := dto.HealthCheckOutput{
 		Status:   healthStatusOK,
 		Database: healthStatusOK,
@@ -41,13 +41,13 @@ func (uc *HealthCheck) Execute(ctx context.Context, _ dto.HealthCheckInput) (dto
 		Broker:   healthStatusOK,
 	}
 
-	if err := uc.databaseHealth.Ping(ctx); err != nil {
+	if err := uc.avatarRepo.Ping(ctx); err != nil {
 		out.Database = healthStatusError
 	}
-	if err := uc.storageHealth.Ping(ctx); err != nil {
+	if err := uc.avatarStorage.Ping(ctx); err != nil {
 		out.Storage = healthStatusError
 	}
-	if err := uc.brokerHealth.Ping(ctx); err != nil {
+	if err := uc.eventPublisher.Ping(ctx); err != nil {
 		out.Broker = healthStatusError
 	}
 
