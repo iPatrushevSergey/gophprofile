@@ -43,7 +43,7 @@ func TestUploadAvatar_Execute(t *testing.T) {
 		})
 		storage.EXPECT().Put(ctx, "user-1/avatar-1/original", []byte("image"), "image/png").Return(nil)
 		writer.EXPECT().MarkUploadCompleted(ctx, "avatar-1", now).Return(nil)
-		outbox.EXPECT().EnqueueAvatarUploaded(ctx, dto.AvatarUploadedEvent{
+		outbox.EXPECT().CreateUploaded(ctx, dto.AvatarUploadedEvent{
 			AvatarID: "avatar-1",
 			UserID:   "user-1",
 			S3Key:    "user-1/avatar-1/original",
