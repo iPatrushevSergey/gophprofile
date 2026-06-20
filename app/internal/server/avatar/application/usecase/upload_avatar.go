@@ -78,7 +78,7 @@ func (uc *UploadAvatar) Execute(ctx context.Context, in dto.UploadAvatarInput) (
 			return err
 		}
 
-		return uc.outboxWriter.EnqueueAvatarUploaded(txCtx, dto.AvatarUploadedEvent{
+		return uc.outboxWriter.CreateUploaded(txCtx, dto.AvatarUploadedEvent{
 			AvatarID: avatar.ID,
 			UserID:   avatar.UserID,
 			S3Key:    avatar.S3Key,
