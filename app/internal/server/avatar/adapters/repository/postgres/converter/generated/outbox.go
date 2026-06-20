@@ -6,27 +6,38 @@ package generated
 import (
 	converter "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres/converter"
 	model "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres/model"
-	entity "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/entity"
+	dto "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
 )
 
 type OutboxConverterImpl struct{}
 
-func (c *OutboxConverterImpl) OutboxEntityToOutboxEventModel(source entity.OutboxEvent) (model.OutboxEvent, error) {
+func (c *OutboxConverterImpl) OutboxDeletedCreateToOutboxEventModel(source dto.OutboxDeletedCreate) (model.OutboxEvent, error) {
 	var modelOutboxEvent model.OutboxEvent
 	uuidUUID, err := converter.StringToUUID(source.ID)
 	if err != nil {
 		return modelOutboxEvent, err
 	}
 	modelOutboxEvent.ID = uuidUUID
-	modelOutboxEvent.EventType = converter.OutboxEventTypeToString(source.EventType)
-	jsonRawMessage, err := converter.OutboxEntityToPayload(source)
+	jsonRawMessage, err := converter.AvatarDeletedEventToPayload(source.Event)
 	if err != nil {
 		return modelOutboxEvent, err
 	}
 	modelOutboxEvent.Payload = jsonRawMessage
-	modelOutboxEvent.Status = converter.OutboxStatusToString(source.Status)
 	modelOutboxEvent.CreatedAt = converter.CopyTime(source.CreatedAt)
-	modelOutboxEvent.PublishedAt = converter.CopyTimePtr(source.PublishedAt)
-	modelOutboxEvent.Attempts = source.Attempts
+	return modelOutboxEvent, nil
+}
+func (c *OutboxConverterImpl) OutboxUploadedCreateToOutboxEventModel(source dto.OutboxUploadedCreate) (model.OutboxEvent, error) {
+	var modelOutboxEvent model.OutboxEvent
+	uuidUUID, err := converter.StringToUUID(source.ID)
+	if err != nil {
+		return modelOutboxEvent, err
+	}
+	modelOutboxEvent.ID = uuidUUID
+	jsonRawMessage, err := converter.AvatarUploadedEventToPayload(source.Event)
+	if err != nil {
+		return modelOutboxEvent, err
+	}
+	modelOutboxEvent.Payload = jsonRawMessage
+	modelOutboxEvent.CreatedAt = converter.CopyTime(source.CreatedAt)
 	return modelOutboxEvent, nil
 }
