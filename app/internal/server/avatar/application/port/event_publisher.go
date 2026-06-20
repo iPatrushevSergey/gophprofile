@@ -10,4 +10,5 @@ import (
 type EventPublisher interface {
 	PublishAvatarUploaded(ctx context.Context, event dto.AvatarUploadedEvent) error
 	PublishAvatarDeleted(ctx context.Context, event dto.AvatarDeletedEvent) error
+	Ping(ctx context.Context) error
 }
