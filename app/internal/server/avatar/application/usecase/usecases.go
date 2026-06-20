@@ -16,9 +16,6 @@ type AvatarUseCasesParams struct {
 	IDGenerator          appport.IDGenerator
 	Transactor           appport.Transactor
 	Clock                appport.Clock
-	DatabaseHealth       appport.DatabaseHealth
-	StorageHealth        appport.StorageHealth
-	BrokerHealth         appport.BrokerHealth
 	OutboxBatchSize      int
 	UploadReservationTTL time.Duration
 }
@@ -30,7 +27,7 @@ type AvatarUseCases struct {
 	GetMetadata                appport.UseCase[dto.GetAvatarMetadataInput, dto.AvatarMetadataOutput]
 	ListByUser                 appport.UseCase[dto.ListUserAvatarsInput, dto.ListUserAvatarsOutput]
 	Delete                     appport.UseCase[dto.DeleteAvatarInput, struct{}]
-	Health                     appport.UseCase[dto.HealthCheckInput, dto.HealthCheckOutput]
+	Health                     appport.UseCase[struct{}, dto.HealthCheckOutput]
 	ExpireUploadingAvatars     appport.UseCase[struct{}, struct{}]
 	PublishPendingOutboxEvents appport.UseCase[struct{}, struct{}]
 }
@@ -56,9 +53,9 @@ func NewAvatarUseCases(p AvatarUseCasesParams) *AvatarUseCases {
 			p.Transactor,
 		),
 		Health: NewHealthCheck(
-			p.DatabaseHealth,
-			p.StorageHealth,
-			p.BrokerHealth,
+			p.AvatarRepo,
+			p.AvatarStorage,
+			p.EventPublisher,
 		),
 		ExpireUploadingAvatars: NewExpireUploadingAvatars(
 			p.AvatarRepo,
