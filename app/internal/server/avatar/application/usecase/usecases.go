@@ -69,6 +69,7 @@ func NewAvatarUseCases(p AvatarUseCasesParams) *AvatarUseCases {
 			p.OutboxRepo,
 			p.OutboxRepo,
 			p.EventPublisher,
+			p.Clock,
 			p.OutboxBatchSize,
 		),
 	}
