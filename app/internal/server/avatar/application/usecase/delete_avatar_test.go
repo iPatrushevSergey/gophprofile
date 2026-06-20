@@ -37,21 +37,26 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 		writer := portmocks.NewMockAvatarWriter(ctrl)
 		outbox := portmocks.NewMockOutboxWriter(ctrl)
 		transactor := portmocks.NewMockTransactor(ctrl)
-
+		idGen := portmocks.NewMockIDGenerator(ctrl)
 		clock := portmocks.NewMockClock(ctrl)
 
 		reader.EXPECT().FindByID(ctx, "avatar-1").Return(avatar, nil)
 		clock.EXPECT().Now().Return(now)
+		idGen.EXPECT().NewID().Return("outbox-1", nil)
 		transactor.EXPECT().RunInTransaction(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
 		)
 		writer.EXPECT().SoftDelete(ctx, "avatar-1", "user-1", now).Return(nil)
-		outbox.EXPECT().CreateDeleted(ctx, dto.AvatarDeletedEvent{
-			AvatarID: "avatar-1",
-			S3Keys:   []string{"user-1/avatar-1/original", "user-1/avatar-1/100x100"},
+		outbox.EXPECT().CreateDeleted(ctx, dto.OutboxDeletedCreate{
+			ID:        "outbox-1",
+			CreatedAt: now,
+			Event: dto.AvatarDeletedEvent{
+				AvatarID: "avatar-1",
+				S3Keys:   []string{"user-1/avatar-1/original", "user-1/avatar-1/100x100"},
+			},
 		}).Return(nil)
 
-		uc := NewDeleteAvatar(reader, writer, outbox, transactor, clock)
+		uc := NewDeleteAvatar(reader, writer, outbox, transactor, idGen, clock)
 		_, err := uc.Execute(ctx, dto.DeleteAvatarInput{AvatarID: "avatar-1", RequestUserID: "user-1"})
 		require.NoError(t, err)
 	})
@@ -66,6 +71,7 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 			portmocks.NewMockAvatarWriter(ctrl),
 			portmocks.NewMockOutboxWriter(ctrl),
 			portmocks.NewMockTransactor(ctrl),
+			portmocks.NewMockIDGenerator(ctrl),
 			portmocks.NewMockClock(ctrl),
 		)
 		_, err := uc.Execute(ctx, dto.DeleteAvatarInput{AvatarID: "avatar-1", RequestUserID: "other-user"})
