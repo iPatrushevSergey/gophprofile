@@ -60,8 +60,8 @@ func (r *AvatarRepository) FindByID(ctx context.Context, id string) (*entity.Ava
 			return err
 		}
 
-		avatar = r.conv.ToEntity(dbRow)
-		return nil
+		avatar, err = r.conv.ToEntity(dbRow)
+		return err
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -100,7 +100,11 @@ func (r *AvatarRepository) ListByUserID(ctx context.Context, userID string) ([]e
 
 		avatars = make([]entity.Avatar, 0, len(dbRows))
 		for _, dbRow := range dbRows {
-			avatars = append(avatars, r.conv.ToEntity(dbRow))
+			item, err := r.conv.ToEntity(dbRow)
+			if err != nil {
+				return err
+			}
+			avatars = append(avatars, item)
 		}
 		return nil
 	})
@@ -137,7 +141,11 @@ func (r *AvatarRepository) ListExpiredUploading(ctx context.Context, before time
 
 		avatars = make([]entity.Avatar, 0, len(dbRows))
 		for _, dbRow := range dbRows {
-			avatars = append(avatars, r.conv.ToEntity(dbRow))
+			item, err := r.conv.ToEntity(dbRow)
+			if err != nil {
+				return err
+			}
+			avatars = append(avatars, item)
 		}
 		return nil
 	})
@@ -151,9 +159,12 @@ func (r *AvatarRepository) ListExpiredUploading(ctx context.Context, before time
 func (r *AvatarRepository) Create(ctx context.Context, avatar *entity.Avatar) error {
 	return r.transactor.DoWithRetry(ctx, func() error {
 		q := r.transactor.GetQuerier(ctx)
-		dbAvatar := r.conv.ToModel(*avatar)
+		dbAvatar, err := r.conv.ToModel(*avatar)
+		if err != nil {
+			return err
+		}
 
-		_, err := q.Exec(ctx, `
+		_, err = q.Exec(ctx, `
 			INSERT INTO avatars (
 				id, user_id, file_name, mime_type, size_bytes, s3_key, thumbnail_s3_keys,
 				upload_status, processing_status, created_at, updated_at
