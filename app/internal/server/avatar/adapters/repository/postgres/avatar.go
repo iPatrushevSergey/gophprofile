@@ -10,6 +10,7 @@ import (
 
 	postgreskit "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres/converter"
+	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres/converter/generated"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres/model"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/entity"
@@ -26,7 +27,7 @@ type AvatarRepository struct {
 func NewAvatarRepository(transactor *postgreskit.Transactor) *AvatarRepository {
 	return &AvatarRepository{
 		transactor: transactor,
-		conv:       &converter.AvatarConverterImpl{},
+		conv:       &generated.AvatarConverterImpl{},
 	}
 }
 
@@ -60,7 +61,7 @@ func (r *AvatarRepository) FindByID(ctx context.Context, id string) (*entity.Ava
 			return err
 		}
 
-		avatar, err = r.conv.ToEntity(dbRow)
+		avatar, err = r.conv.AvatarModelToAvatarEntity(dbRow)
 		return err
 	})
 	if err != nil {
@@ -100,7 +101,7 @@ func (r *AvatarRepository) ListByUserID(ctx context.Context, userID string) ([]e
 
 		avatars = make([]entity.Avatar, 0, len(dbRows))
 		for _, dbRow := range dbRows {
-			item, err := r.conv.ToEntity(dbRow)
+			item, err := r.conv.AvatarModelToAvatarEntity(dbRow)
 			if err != nil {
 				return err
 			}
@@ -141,7 +142,7 @@ func (r *AvatarRepository) ListExpiredUploading(ctx context.Context, before time
 
 		avatars = make([]entity.Avatar, 0, len(dbRows))
 		for _, dbRow := range dbRows {
-			item, err := r.conv.ToEntity(dbRow)
+			item, err := r.conv.AvatarModelToAvatarEntity(dbRow)
 			if err != nil {
 				return err
 			}
@@ -159,7 +160,7 @@ func (r *AvatarRepository) ListExpiredUploading(ctx context.Context, before time
 func (r *AvatarRepository) Create(ctx context.Context, avatar *entity.Avatar) error {
 	return r.transactor.DoWithRetry(ctx, func() error {
 		q := r.transactor.GetQuerier(ctx)
-		dbAvatar, err := r.conv.ToModel(*avatar)
+		dbAvatar, err := r.conv.AvatarEntityToAvatarModel(*avatar)
 		if err != nil {
 			return err
 		}
