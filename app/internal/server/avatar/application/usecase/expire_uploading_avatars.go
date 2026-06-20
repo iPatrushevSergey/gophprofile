@@ -35,7 +35,9 @@ func NewExpireUploadingAvatars(
 
 // Execute marks expired upload reservations and removes orphan objects.
 func (uc *ExpireUploadingAvatars) Execute(ctx context.Context, _ struct{}) (struct{}, error) {
-	avatars, err := uc.avatarReader.ListExpiredUploading(ctx, uc.clock.Now().Add(-uc.uploadReservationTTL))
+	now := uc.clock.Now()
+
+	avatars, err := uc.avatarReader.ListExpiredUploading(ctx, now.Add(-uc.uploadReservationTTL))
 	if err != nil {
 		return struct{}{}, err
 	}
@@ -48,7 +50,7 @@ func (uc *ExpireUploadingAvatars) Execute(ctx context.Context, _ struct{}) (stru
 				return struct{}{}, err
 			}
 		}
-		if err := uc.avatarWriter.MarkUploadFailed(ctx, avatar.ID); err != nil {
+		if err := uc.avatarWriter.MarkUploadFailed(ctx, avatar.ID, now); err != nil {
 			return struct{}{}, err
 		}
 	}
