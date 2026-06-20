@@ -19,8 +19,8 @@ type AvatarReader interface {
 type AvatarWriter interface {
 	Create(ctx context.Context, avatar *entity.Avatar) error
 	MarkUploadCompleted(ctx context.Context, id string, updatedAt time.Time) error
-	MarkUploadFailed(ctx context.Context, id string) error
-	SoftDelete(ctx context.Context, id, userID string) error
+	MarkUploadFailed(ctx context.Context, id string, updatedAt time.Time) error
+	SoftDelete(ctx context.Context, id, userID string, deletedAt time.Time) error
 }
 
 // AvatarRepo combines read and write access to avatars.
