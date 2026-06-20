@@ -52,7 +52,7 @@ func (uc *DeleteAvatar) Execute(ctx context.Context, in dto.DeleteAvatarInput) (
 			return err
 		}
 
-		return uc.outboxWriter.EnqueueAvatarDeleted(txCtx, dto.AvatarDeletedEvent{
+		return uc.outboxWriter.CreateDeleted(txCtx, dto.AvatarDeletedEvent{
 			AvatarID: avatar.ID,
 			S3Keys:   avatar.AllS3Keys(),
 		})
