@@ -34,7 +34,9 @@ func TestPublishPendingOutboxEvents_Execute(t *testing.T) {
 			{
 				ID:        "outbox-1",
 				EventType: vo.OutboxEventAvatarUploaded,
-				Uploaded:  uploaded,
+				AvatarID:  uploaded.AvatarID,
+				UserID:    uploaded.UserID,
+				S3Key:     uploaded.S3Key,
 			},
 		}, nil)
 		publisher.EXPECT().PublishAvatarUploaded(ctx, uploaded).Return(nil)
