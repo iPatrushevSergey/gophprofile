@@ -46,7 +46,7 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 			func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
 		)
 		writer.EXPECT().SoftDelete(ctx, "avatar-1", "user-1", now).Return(nil)
-		outbox.EXPECT().EnqueueAvatarDeleted(ctx, dto.AvatarDeletedEvent{
+		outbox.EXPECT().CreateDeleted(ctx, dto.AvatarDeletedEvent{
 			AvatarID: "avatar-1",
 			S3Keys:   []string{"user-1/avatar-1/original", "user-1/avatar-1/100x100"},
 		}).Return(nil)
