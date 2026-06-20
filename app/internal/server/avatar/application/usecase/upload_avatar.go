@@ -78,10 +78,19 @@ func (uc *UploadAvatar) Execute(ctx context.Context, in dto.UploadAvatarInput) (
 			return err
 		}
 
-		return uc.outboxWriter.CreateUploaded(txCtx, dto.AvatarUploadedEvent{
-			AvatarID: avatar.ID,
-			UserID:   avatar.UserID,
-			S3Key:    avatar.S3Key,
+		outboxID, err := uc.idGenerator.NewID()
+		if err != nil {
+			return err
+		}
+
+		return uc.outboxWriter.CreateUploaded(txCtx, dto.OutboxUploadedCreate{
+			ID:        outboxID,
+			CreatedAt: now,
+			Event: dto.AvatarUploadedEvent{
+				AvatarID: avatar.ID,
+				UserID:   avatar.UserID,
+				S3Key:    avatar.S3Key,
+			},
 		})
 	})
 	if err != nil {
