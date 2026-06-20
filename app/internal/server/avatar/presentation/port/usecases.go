@@ -12,7 +12,7 @@ type AvatarUseCases interface {
 	GetUseCase() appport.UseCase[appdto.GetAvatarInput, appdto.GetAvatarOutput]
 	GetMetadataUseCase() appport.UseCase[appdto.GetAvatarMetadataInput, appdto.AvatarMetadataOutput]
 	DeleteUseCase() appport.UseCase[appdto.DeleteAvatarInput, struct{}]
-	HealthUseCase() appport.UseCase[appdto.HealthCheckInput, appdto.HealthCheckOutput]
+	HealthUseCase() appport.UseCase[struct{}, appdto.HealthCheckOutput]
 	ExpireUploadingAvatarsUseCase() appport.UseCase[struct{}, struct{}]
 	PublishPendingOutboxEventsUseCase() appport.UseCase[struct{}, struct{}]
 }
