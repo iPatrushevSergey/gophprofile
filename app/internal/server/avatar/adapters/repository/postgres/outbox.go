@@ -13,7 +13,6 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres/model"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
-	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/entity"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/vo"
 )
 
@@ -31,20 +30,39 @@ func NewOutboxRepository(transactor *postgreskit.Transactor) *OutboxRepository {
 	}
 }
 
-// Create inserts a new outbox event.
-func (r *OutboxRepository) Create(ctx context.Context, event *entity.OutboxEvent) error {
+// CreateUploaded inserts a pending avatar uploaded outbox event.
+func (r *OutboxRepository) CreateUploaded(ctx context.Context, event dto.OutboxUploadedCreate) error {
 	return r.transactor.DoWithRetry(ctx, func() error {
 		q := r.transactor.GetQuerier(ctx)
 
-		dbRow, err := r.conv.OutboxEntityToOutboxEventModel(*event)
+		dbRow, err := r.conv.OutboxUploadedCreateToOutboxEventModel(event)
 		if err != nil {
 			return err
 		}
 
 		_, err = q.Exec(ctx, `
-			INSERT INTO avatar_outbox (id, event_type, payload, status, created_at, attempts)
-			VALUES ($1, $2, $3, $4, $5, $6)`,
-			dbRow.ID, dbRow.EventType, dbRow.Payload, dbRow.Status, dbRow.CreatedAt, dbRow.Attempts,
+			INSERT INTO avatar_outbox (id, event_type, payload, created_at)
+			VALUES ($1, $2, $3, $4)`,
+			dbRow.ID, string(vo.OutboxEventAvatarUploaded), dbRow.Payload, dbRow.CreatedAt,
+		)
+		return err
+	})
+}
+
+// CreateDeleted inserts a pending avatar deleted outbox event.
+func (r *OutboxRepository) CreateDeleted(ctx context.Context, event dto.OutboxDeletedCreate) error {
+	return r.transactor.DoWithRetry(ctx, func() error {
+		q := r.transactor.GetQuerier(ctx)
+
+		dbRow, err := r.conv.OutboxDeletedCreateToOutboxEventModel(event)
+		if err != nil {
+			return err
+		}
+
+		_, err = q.Exec(ctx, `
+			INSERT INTO avatar_outbox (id, event_type, payload, created_at)
+			VALUES ($1, $2, $3, $4)`,
+			dbRow.ID, string(vo.OutboxEventAvatarDeleted), dbRow.Payload, dbRow.CreatedAt,
 		)
 		return err
 	})
