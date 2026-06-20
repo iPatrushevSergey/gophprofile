@@ -22,9 +22,6 @@ func TestNewAvatarUseCases_wiresUseCases(t *testing.T) {
 		IDGenerator:          portmocks.NewMockIDGenerator(ctrl),
 		Transactor:           pkginmemory.NewTransactor(),
 		Clock:                portmocks.NewMockClock(ctrl),
-		DatabaseHealth:       portmocks.NewMockDatabaseHealth(ctrl),
-		StorageHealth:        portmocks.NewMockStorageHealth(ctrl),
-		BrokerHealth:         portmocks.NewMockBrokerHealth(ctrl),
 		OutboxBatchSize:      100,
 		UploadReservationTTL: time.Minute,
 	})
