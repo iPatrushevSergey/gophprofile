@@ -14,6 +14,7 @@ type DeleteAvatar struct {
 	avatarWriter appport.AvatarWriter
 	outboxWriter appport.OutboxWriter
 	transactor   appport.Transactor
+	idGenerator  appport.IDGenerator
 	clock        appport.Clock
 }
 
@@ -23,6 +24,7 @@ func NewDeleteAvatar(
 	avatarWriter appport.AvatarWriter,
 	outboxWriter appport.OutboxWriter,
 	transactor appport.Transactor,
+	idGenerator appport.IDGenerator,
 	clock appport.Clock,
 ) appport.UseCase[dto.DeleteAvatarInput, struct{}] {
 	return &DeleteAvatar{
@@ -30,6 +32,7 @@ func NewDeleteAvatar(
 		avatarWriter: avatarWriter,
 		outboxWriter: outboxWriter,
 		transactor:   transactor,
+		idGenerator:  idGenerator,
 		clock:        clock,
 	}
 }
@@ -52,9 +55,18 @@ func (uc *DeleteAvatar) Execute(ctx context.Context, in dto.DeleteAvatarInput) (
 			return err
 		}
 
-		return uc.outboxWriter.CreateDeleted(txCtx, dto.AvatarDeletedEvent{
-			AvatarID: avatar.ID,
-			S3Keys:   avatar.AllS3Keys(),
+		outboxID, err := uc.idGenerator.NewID()
+		if err != nil {
+			return err
+		}
+
+		return uc.outboxWriter.CreateDeleted(txCtx, dto.OutboxDeletedCreate{
+			ID:        outboxID,
+			CreatedAt: now,
+			Event: dto.AvatarDeletedEvent{
+				AvatarID: avatar.ID,
+				S3Keys:   avatar.AllS3Keys(),
+			},
 		})
 	})
 	if err != nil {
