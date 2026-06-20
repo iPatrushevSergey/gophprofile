@@ -51,6 +51,7 @@ func NewAvatarUseCases(p AvatarUseCasesParams) *AvatarUseCases {
 			p.AvatarRepo,
 			p.OutboxRepo,
 			p.Transactor,
+			p.IDGenerator,
 			p.Clock,
 		),
 		Health: NewHealthCheck(
