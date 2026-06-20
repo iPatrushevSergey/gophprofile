@@ -1,4 +1,4 @@
-package converter
+package converter_test
 
 import (
 	"testing"
@@ -8,12 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres/converter/generated"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/entity"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/vo"
 )
 
 func TestAvatarConverter_roundTrip(t *testing.T) {
-	c := AvatarConverterImpl{}
+	c := generated.AvatarConverterImpl{}
 	now := time.Now().UTC().Truncate(time.Second)
 	avatar := entity.Avatar{
 		ID:        uuid.NewString(),
@@ -31,10 +32,10 @@ func TestAvatarConverter_roundTrip(t *testing.T) {
 		UpdatedAt:        now,
 	}
 
-	row, err := c.ToModel(avatar)
+	row, err := c.AvatarEntityToAvatarModel(avatar)
 	require.NoError(t, err)
 
-	got, err := c.ToEntity(row)
+	got, err := c.AvatarModelToAvatarEntity(row)
 	require.NoError(t, err)
 	assert.Equal(t, avatar, got)
 }
