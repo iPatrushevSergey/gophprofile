@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/vo"
 )
@@ -44,11 +45,18 @@ func (uc *PublishPendingOutboxEvents) Execute(ctx context.Context, _ struct{}) (
 	for _, event := range events {
 		switch event.EventType {
 		case vo.OutboxEventAvatarUploaded:
-			if err := uc.eventPublisher.PublishAvatarUploaded(ctx, event.Uploaded); err != nil {
+			if err := uc.eventPublisher.PublishAvatarUploaded(ctx, dto.AvatarUploadedEvent{
+				AvatarID: event.AvatarID,
+				UserID:   event.UserID,
+				S3Key:    event.S3Key,
+			}); err != nil {
 				return struct{}{}, err
 			}
 		case vo.OutboxEventAvatarDeleted:
-			if err := uc.eventPublisher.PublishAvatarDeleted(ctx, event.Deleted); err != nil {
+			if err := uc.eventPublisher.PublishAvatarDeleted(ctx, dto.AvatarDeletedEvent{
+				AvatarID: event.AvatarID,
+				S3Keys:   event.S3Keys,
+			}); err != nil {
 				return struct{}{}, err
 			}
 		default:
