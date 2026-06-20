@@ -30,6 +30,7 @@ func TestUploadAvatar_Execute(t *testing.T) {
 		clock := portmocks.NewMockClock(ctrl)
 
 		idGen.EXPECT().NewID().Return("avatar-1", nil)
+		idGen.EXPECT().NewID().Return("outbox-1", nil)
 		clock.EXPECT().Now().Return(now)
 		transactor.EXPECT().RunInTransaction(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
@@ -43,10 +44,14 @@ func TestUploadAvatar_Execute(t *testing.T) {
 		})
 		storage.EXPECT().Put(ctx, "user-1/avatar-1/original", []byte("image"), "image/png").Return(nil)
 		writer.EXPECT().MarkUploadCompleted(ctx, "avatar-1", now).Return(nil)
-		outbox.EXPECT().CreateUploaded(ctx, dto.AvatarUploadedEvent{
-			AvatarID: "avatar-1",
-			UserID:   "user-1",
-			S3Key:    "user-1/avatar-1/original",
+		outbox.EXPECT().CreateUploaded(ctx, dto.OutboxUploadedCreate{
+			ID:        "outbox-1",
+			CreatedAt: now,
+			Event: dto.AvatarUploadedEvent{
+				AvatarID: "avatar-1",
+				UserID:   "user-1",
+				S3Key:    "user-1/avatar-1/original",
+			},
 		}).Return(nil)
 
 		uc := NewUploadAvatar(writer, storage, outbox, transactor, idGen, clock)
