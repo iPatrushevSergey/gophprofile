@@ -241,10 +241,7 @@ func (h *AvatarHandler) Delete(c echo.Context) error {
 
 // Health handles health check.
 func (h *AvatarHandler) Health(c echo.Context) error {
-	out, err := h.useCases.HealthUseCase().Execute(
-		c.Request().Context(),
-		appdto.HealthCheckInput{},
-	)
+	out, err := h.useCases.HealthUseCase().Execute(c.Request().Context(), struct{}{})
 	if err != nil {
 		h.log.Error("health check failed", "error", err)
 		return c.NoContent(http.StatusInternalServerError)
