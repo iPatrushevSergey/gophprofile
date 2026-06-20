@@ -14,6 +14,7 @@ type DeleteAvatar struct {
 	avatarWriter appport.AvatarWriter
 	outboxWriter appport.OutboxWriter
 	transactor   appport.Transactor
+	clock        appport.Clock
 }
 
 // NewDeleteAvatar returns the delete avatar use case.
@@ -22,12 +23,14 @@ func NewDeleteAvatar(
 	avatarWriter appport.AvatarWriter,
 	outboxWriter appport.OutboxWriter,
 	transactor appport.Transactor,
+	clock appport.Clock,
 ) appport.UseCase[dto.DeleteAvatarInput, struct{}] {
 	return &DeleteAvatar{
 		avatarReader: avatarReader,
 		avatarWriter: avatarWriter,
 		outboxWriter: outboxWriter,
 		transactor:   transactor,
+		clock:        clock,
 	}
 }
 
@@ -42,8 +45,10 @@ func (uc *DeleteAvatar) Execute(ctx context.Context, in dto.DeleteAvatarInput) (
 		return struct{}{}, application.ErrForbidden
 	}
 
+	now := uc.clock.Now()
+
 	err = uc.transactor.RunInTransaction(ctx, func(txCtx context.Context) error {
-		if err := uc.avatarWriter.SoftDelete(txCtx, in.AvatarID, in.RequestUserID); err != nil {
+		if err := uc.avatarWriter.SoftDelete(txCtx, in.AvatarID, in.RequestUserID, now); err != nil {
 			return err
 		}
 
