@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,6 +27,7 @@ func writeServerConfig(t *testing.T, yaml string) string {
 
 func TestFinalizeConfig_ok(t *testing.T) {
 	cfg := Config{
+		Logger: logger.Config{Level: "info"},
 		Server: Server{
 			Address:         "localhost:8080",
 			ShutdownTimeout: time.Second,
@@ -43,33 +45,48 @@ func TestServer_TLSEnabled(t *testing.T) {
 
 func TestFinalizeConfig_invalidAddress(t *testing.T) {
 	cfg := Config{
-		Server: Server{Address: "bad"},
+		Logger: logger.Config{Level: "info"},
+		Server: Server{
+			Address:         "bad",
+			ShutdownTimeout: time.Second,
+		},
 	}
 	assert.Error(t, finalizeConfig(&cfg, "app/configs/server.yaml"))
 }
 
-func TestServer_Normalize_tlsFilesMustExist(t *testing.T) {
+func TestServer_Validate_tlsFilesMustExist(t *testing.T) {
 	dir := t.TempDir()
 	cert := filepath.Join(dir, "server.crt")
 	key := filepath.Join(dir, "server.key")
 	require.NoError(t, os.WriteFile(cert, []byte("cert"), 0o600))
 	require.NoError(t, os.WriteFile(key, []byte("key"), 0o600))
 
-	server := Server{CertFile: cert, KeyFile: key}
-	require.NoError(t, server.Normalize())
+	server := Server{
+		Address:         "localhost:8443",
+		ShutdownTimeout: time.Second,
+		CertFile:        cert,
+		KeyFile:         key,
+	}
+	require.NoError(t, server.Validate())
 }
 
-func TestServer_Normalize_missingTLSFile(t *testing.T) {
+func TestServer_Validate_missingTLSFile(t *testing.T) {
 	server := Server{
-		CertFile: filepath.Join(t.TempDir(), "missing.crt"),
-		KeyFile:  filepath.Join(t.TempDir(), "missing.key"),
+		Address:         "localhost:8443",
+		ShutdownTimeout: time.Second,
+		CertFile:        filepath.Join(t.TempDir(), "missing.crt"),
+		KeyFile:         filepath.Join(t.TempDir(), "missing.key"),
 	}
-	require.Error(t, server.Normalize())
+	require.Error(t, server.Validate())
 }
 
 func TestFinalizeConfig_prodRequiresTLS(t *testing.T) {
 	cfg := Config{
-		Server: Server{Address: "0.0.0.0:8443"},
+		Logger: logger.Config{Level: "info"},
+		Server: Server{
+			Address:         "0.0.0.0:8443",
+			ShutdownTimeout: time.Second,
+		},
 	}
 	err := finalizeConfig(&cfg, "app/configs/server.prod.yaml")
 	require.Error(t, err)
@@ -84,10 +101,12 @@ func TestFinalizeConfig_prodOK(t *testing.T) {
 	require.NoError(t, os.WriteFile(key, []byte("key"), 0o600))
 
 	cfg := Config{
+		Logger: logger.Config{Level: "info"},
 		Server: Server{
-			Address:  "0.0.0.0:8443",
-			CertFile: cert,
-			KeyFile:  key,
+			Address:         "0.0.0.0:8443",
+			ShutdownTimeout: time.Second,
+			CertFile:        cert,
+			KeyFile:         key,
 		},
 	}
 	require.NoError(t, finalizeConfig(&cfg, "app/configs/server.prod.yaml"))
