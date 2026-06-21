@@ -21,12 +21,15 @@ database:
 
 minio:
   endpoint: ""
-  public_endpoint: ""
   access_key: ""
   secret_key: ""
   bucket: gophprofile
   use_ssl: false
+  upload_reservation_ttl: "30m"
+  upload_gc_interval: "5m"
 
 broker:
   url: ""
   exchange: avatars
+  publish_interval: "5s"
+  outbox_batch_size: 100
