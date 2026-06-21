@@ -38,11 +38,22 @@ type Server struct {
 	KeyFile         string        `mapstructure:"key_file"`
 }
 
-// Normalize trims server fields and verifies TLS cert/key files when configured.
-func (s *Server) Normalize() error {
+// Validate trims server fields, normalizes address and verifies TLS cert/key files when configured.
+func (s *Server) Validate() error {
 	s.Address = strings.TrimSpace(s.Address)
 	s.CertFile = strings.TrimSpace(s.CertFile)
 	s.KeyFile = strings.TrimSpace(s.KeyFile)
+
+	var addr Address
+	if err := addr.Set(s.Address); err != nil {
+		return fmt.Errorf("address: %w", err)
+	}
+	s.Address = addr.String()
+
+	if s.ShutdownTimeout <= 0 {
+		return fmt.Errorf("shutdown_timeout must be positive")
+	}
+
 	if !s.TLSEnabled() {
 		return nil
 	}
@@ -196,7 +207,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("database.retry.base_delay", "100ms")
 	v.SetDefault("database.retry.max_delay", "2s")
 	v.SetDefault("minio.endpoint", "")
-	v.SetDefault("minio.public_endpoint", "")
 	v.SetDefault("minio.access_key", "")
 	v.SetDefault("minio.secret_key", "")
 	v.SetDefault("minio.bucket", "gophprofile")
@@ -254,25 +264,32 @@ func bindFlags(v *viper.Viper, fs *pflag.FlagSet) error {
 	return nil
 }
 
-// finalizeConfig finalizes the config.
+// finalizeConfig validates loaded config and applies cross-cutting rules.
 func finalizeConfig(cfg *Config, configPath string) error {
-	cfg.Logger.Normalize()
-	cfg.DB.Pool.Normalize()
-	cfg.MinIO.Normalize()
-	cfg.Broker.Normalize()
-	if err := cfg.Server.Normalize(); err != nil {
-		return err
+	if err := cfg.Logger.Validate(); err != nil {
+		return fmt.Errorf("logger: %w", err)
 	}
 
-	var addr Address
-	if err := addr.Set(cfg.Server.Address); err != nil {
-		return fmt.Errorf("server address: %w", err)
+	if err := cfg.DB.Validate(); err != nil {
+		return fmt.Errorf("database: %w", err)
 	}
-	cfg.Server.Address = addr.String()
+
+	if err := cfg.MinIO.Validate(); err != nil {
+		return fmt.Errorf("minio: %w", err)
+	}
+
+	if err := cfg.Broker.Validate(); err != nil {
+		return fmt.Errorf("broker: %w", err)
+	}
+
+	if err := cfg.Server.Validate(); err != nil {
+		return fmt.Errorf("server: %w", err)
+	}
 
 	if !strings.HasSuffix(strings.ToLower(filepath.Base(configPath)), ".prod.yaml") {
 		return nil
 	}
+
 	if !cfg.Server.TLSEnabled() {
 		return fmt.Errorf("production config requires TLS (server.cert_file and server.key_file)")
 	}
