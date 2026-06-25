@@ -68,20 +68,58 @@ func NewPublisher(cfg Config) (*Publisher, error) {
 
 // PublishAvatarUploaded publishes avatar uploaded event.
 func (p *Publisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarUploadedEvent) error {
+	if !p.cfg.Enabled() {
+		return errBrokerNotConfigured
+	}
+
 	body, err := converter.AvatarUploadedEventToMessage(event)
 	if err != nil {
 		return err
 	}
-	return p.publish(ctx, string(vo.OutboxEventAvatarUploaded), body)
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return p.ch.PublishWithContext(
+		ctx,
+		p.cfg.Exchange,
+		string(vo.OutboxEventAvatarUploaded),
+		false,
+		false,
+		amqp091.Publishing{
+			ContentType:  "application/json",
+			DeliveryMode: amqp091.Persistent,
+			Body:         body,
+		},
+	)
 }
 
 // PublishAvatarDeleted publishes avatar deleted event.
 func (p *Publisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDeletedEvent) error {
+	if !p.cfg.Enabled() {
+		return errBrokerNotConfigured
+	}
+
 	body, err := converter.AvatarDeletedEventToMessage(event)
 	if err != nil {
 		return err
 	}
-	return p.publish(ctx, string(vo.OutboxEventAvatarDeleted), body)
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return p.ch.PublishWithContext(
+		ctx,
+		p.cfg.Exchange,
+		string(vo.OutboxEventAvatarDeleted),
+		false,
+		false,
+		amqp091.Publishing{
+			ContentType:  "application/json",
+			DeliveryMode: amqp091.Persistent,
+			Body:         body,
+		},
+	)
 }
 
 // Ping checks broker connectivity.
@@ -114,30 +152,4 @@ func (p *Publisher) Ping(ctx context.Context) error {
 		return fmt.Errorf("rabbitmq exchange: %w", err)
 	}
 	return nil
-}
-
-// publish publishes a message to the RabbitMQ exchange.
-func (p *Publisher) publish(ctx context.Context, routingKey string, body []byte) error {
-	if !p.cfg.Enabled() {
-		return errBrokerNotConfigured
-	}
-	if p.ch == nil {
-		return fmt.Errorf("rabbitmq: not connected")
-	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	return p.ch.PublishWithContext(
-		ctx,
-		p.cfg.Exchange,
-		routingKey,
-		false,
-		false,
-		amqp091.Publishing{
-			ContentType:  "application/json",
-			DeliveryMode: amqp091.Persistent,
-			Body:         body,
-		},
-	)
 }
