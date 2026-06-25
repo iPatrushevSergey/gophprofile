@@ -34,6 +34,14 @@ type Worker struct {
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 }
 
+// Validate checks worker settings.
+func (w *Worker) Validate() error {
+	if w.ShutdownTimeout <= 0 {
+		return fmt.Errorf("shutdown_timeout must be positive")
+	}
+	return nil
+}
+
 // LoadConfig loads processor config.
 // Field priority: flags > env > yaml > viper defaults.
 // Config file path: flag -c > env CONFIG > default path.
@@ -84,7 +92,7 @@ func LoadConfig() (Config, error) {
 	}
 
 	// Finalize config.
-	if err := finalizeConfig(&cfg); err != nil {
+	if err := finalizeConfig(&cfg, configPath); err != nil {
 		return Config{}, err
 	}
 
@@ -156,7 +164,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("database.retry.base_delay", "100ms")
 	v.SetDefault("database.retry.max_delay", "2s")
 	v.SetDefault("minio.endpoint", "")
-	v.SetDefault("minio.public_endpoint", "")
 	v.SetDefault("minio.access_key", "")
 	v.SetDefault("minio.secret_key", "")
 	v.SetDefault("minio.bucket", "gophprofile")
@@ -208,12 +215,28 @@ func bindFlags(v *viper.Viper, fs *pflag.FlagSet) error {
 	return nil
 }
 
-// finalizeConfig finalizes the config.
-func finalizeConfig(cfg *Config) error {
-	cfg.Logger.Normalize()
-	cfg.DB.Pool.Normalize()
-	cfg.MinIO.Normalize()
-	cfg.Broker.Normalize()
+// finalizeConfig validates loaded config and applies cross-cutting rules.
+func finalizeConfig(cfg *Config, configPath string) error {
+	if err := cfg.Logger.Validate(); err != nil {
+		return fmt.Errorf("logger: %w", err)
+	}
+
+	if err := cfg.DB.Validate(); err != nil {
+		return fmt.Errorf("database: %w", err)
+	}
+
+	if err := cfg.MinIO.Validate(); err != nil {
+		return fmt.Errorf("minio: %w", err)
+	}
+
+	if err := cfg.Broker.Validate(); err != nil {
+		return fmt.Errorf("broker: %w", err)
+	}
+
+	if err := cfg.Worker.Validate(); err != nil {
+		return fmt.Errorf("worker: %w", err)
+	}
+
 	return nil
 }
 
