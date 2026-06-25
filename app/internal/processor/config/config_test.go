@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,9 +27,10 @@ func writeProcessorConfig(t *testing.T, yaml string) string {
 
 func TestFinalizeConfig_ok(t *testing.T) {
 	cfg := Config{
+		Logger: logger.Config{Level: "info"},
 		Worker: Worker{ShutdownTimeout: time.Second},
 	}
-	require.NoError(t, finalizeConfig(&cfg))
+	require.NoError(t, finalizeConfig(&cfg, "app/configs/processor.yaml"))
 	assert.Equal(t, time.Second, cfg.Worker.ShutdownTimeout)
 }
 
