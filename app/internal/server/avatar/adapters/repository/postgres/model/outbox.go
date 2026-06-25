@@ -15,5 +15,4 @@ type OutboxEvent struct {
 	Status      string
 	CreatedAt   time.Time
 	PublishedAt *time.Time
-	Attempts    int
 }

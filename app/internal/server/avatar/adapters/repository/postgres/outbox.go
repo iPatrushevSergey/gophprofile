@@ -80,7 +80,7 @@ func (r *OutboxRepository) MarkPublished(ctx context.Context, id string, publish
 
 		tag, err := q.Exec(ctx, `
 			UPDATE avatar_outbox
-			SET status = $2, published_at = $3, attempts = attempts + 1
+			SET status = $2, published_at = $3
 			WHERE id = $1`,
 			outboxID, string(vo.OutboxStatusPublished), publishedAt,
 		)
@@ -102,7 +102,7 @@ func (r *OutboxRepository) ListPending(ctx context.Context, limit int) ([]dto.Ou
 		q := r.transactor.GetQuerier(ctx)
 
 		rows, err := q.Query(ctx, `
-			SELECT id, event_type, payload, status, created_at, published_at, attempts
+			SELECT id, event_type, payload, status, created_at, published_at
 			FROM avatar_outbox
 			WHERE status = $1
 			ORDER BY created_at

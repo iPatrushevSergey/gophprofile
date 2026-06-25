@@ -46,13 +46,11 @@ func OutboxEventModelToOutboxEventDto(source model.OutboxEvent) (dto.OutboxEvent
 type OutboxConverter interface {
 	// goverter:ignore EventType
 	// goverter:ignore Status
-	// goverter:ignore Attempts
 	// goverter:ignore PublishedAt
 	// goverter:map Event Payload | AvatarUploadedEventToPayload
 	OutboxUploadedCreateToOutboxEventModel(source dto.OutboxUploadedCreate) (model.OutboxEvent, error)
 	// goverter:ignore EventType
 	// goverter:ignore Status
-	// goverter:ignore Attempts
 	// goverter:ignore PublishedAt
 	// goverter:map Event Payload | AvatarDeletedEventToPayload
 	OutboxDeletedCreateToOutboxEventModel(source dto.OutboxDeletedCreate) (model.OutboxEvent, error)
