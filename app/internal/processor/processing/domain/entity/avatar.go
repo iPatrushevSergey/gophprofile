@@ -1,12 +1,13 @@
 package entity
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/domain/vo"
 )
 
-// Avatar is a read/write view of avatar row used by processor.
+// Avatar is the projection of the avatar row.
 type Avatar struct {
 	ID               string
 	UserID           string
@@ -14,4 +15,19 @@ type Avatar struct {
 	ThumbnailS3Keys  map[vo.ThumbnailSize]string
 	ProcessingStatus vo.ProcessingStatus
 	UpdatedAt        time.Time
+}
+
+// ThumbnailObjectKey builds object storage key for a thumbnail variant.
+func ThumbnailObjectKey(userID, avatarID string, size vo.ThumbnailSize) string {
+	return fmt.Sprintf("%s/%s/%s", userID, avatarID, size)
+}
+
+// AllS3Keys returns original and thumbnail object storage keys.
+func (a Avatar) AllS3Keys() []string {
+	keys := make([]string, 0, len(a.ThumbnailS3Keys)+1)
+	keys = append(keys, a.S3Key)
+	for _, key := range a.ThumbnailS3Keys {
+		keys = append(keys, key)
+	}
+	return keys
 }
