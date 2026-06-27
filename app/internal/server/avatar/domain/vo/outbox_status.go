@@ -4,6 +4,7 @@ package vo
 type OutboxStatus string
 
 const (
-	OutboxStatusPending   OutboxStatus = "pending"
-	OutboxStatusPublished OutboxStatus = "published"
+	OutboxStatusPending    OutboxStatus = "pending"
+	OutboxStatusPublishing OutboxStatus = "publishing"
+	OutboxStatusPublished  OutboxStatus = "published"
 )
