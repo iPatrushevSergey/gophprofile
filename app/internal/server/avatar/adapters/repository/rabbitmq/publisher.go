@@ -24,9 +24,11 @@ var _ appport.EventPublisher = (*Publisher)(nil)
 type Publisher struct {
 	cfg Config
 
-	mu   sync.Mutex
-	conn *amqp091.Connection
-	ch   *amqp091.Channel
+	mu              sync.Mutex
+	conn            *amqp091.Connection
+	ch              *amqp091.Channel
+	publishConfirms <-chan amqp091.Confirmation
+	publishReturns  <-chan amqp091.Return
 }
 
 // NewPublisher creates a RabbitMQ event publisher.
@@ -61,8 +63,16 @@ func NewPublisher(cfg Config) (*Publisher, error) {
 		return nil, fmt.Errorf("rabbitmq declare exchange: %w", err)
 	}
 
+	if err := ch.Confirm(false); err != nil {
+		_ = ch.Close()
+		_ = conn.Close()
+		return nil, fmt.Errorf("rabbitmq enable publisher confirms: %w", err)
+	}
+
 	p.conn = conn
 	p.ch = ch
+	p.publishConfirms = ch.NotifyPublish(make(chan amqp091.Confirmation, 1))
+	p.publishReturns = ch.NotifyReturn(make(chan amqp091.Return, 1))
 	return p, nil
 }
 
@@ -80,18 +90,37 @@ func (p *Publisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarU
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.ch.PublishWithContext(
+	if err := p.ch.PublishWithContext(
 		ctx,
 		p.cfg.Exchange,
 		string(vo.OutboxEventAvatarUploaded),
-		false,
+		true,
 		false,
 		amqp091.Publishing{
 			ContentType:  "application/json",
 			DeliveryMode: amqp091.Persistent,
 			Body:         body,
 		},
-	)
+	); err != nil {
+		return fmt.Errorf("rabbitmq publish: %w", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case ret := <-p.publishReturns:
+			return fmt.Errorf(
+				"rabbitmq unroutable message: exchange=%s routing_key=%s reply_code=%d reply_text=%s",
+				ret.Exchange, ret.RoutingKey, ret.ReplyCode, ret.ReplyText,
+			)
+		case confirm := <-p.publishConfirms:
+			if !confirm.Ack {
+				return fmt.Errorf("rabbitmq publish not acknowledged")
+			}
+			return nil
+		}
+	}
 }
 
 // PublishAvatarDeleted publishes avatar deleted event.
@@ -108,18 +137,37 @@ func (p *Publisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDe
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.ch.PublishWithContext(
+	if err := p.ch.PublishWithContext(
 		ctx,
 		p.cfg.Exchange,
 		string(vo.OutboxEventAvatarDeleted),
-		false,
+		true,
 		false,
 		amqp091.Publishing{
 			ContentType:  "application/json",
 			DeliveryMode: amqp091.Persistent,
 			Body:         body,
 		},
-	)
+	); err != nil {
+		return fmt.Errorf("rabbitmq publish: %w", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case ret := <-p.publishReturns:
+			return fmt.Errorf(
+				"rabbitmq unroutable message: exchange=%s routing_key=%s reply_code=%d reply_text=%s",
+				ret.Exchange, ret.RoutingKey, ret.ReplyCode, ret.ReplyText,
+			)
+		case confirm := <-p.publishConfirms:
+			if !confirm.Ack {
+				return fmt.Errorf("rabbitmq publish not acknowledged")
+			}
+			return nil
+		}
+	}
 }
 
 // Ping checks broker connectivity.
