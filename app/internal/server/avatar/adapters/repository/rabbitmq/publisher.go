@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"sync"
 
+	easyjson "github.com/mailru/easyjson"
 	amqp091 "github.com/rabbitmq/amqp091-go"
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/rabbitmq/converter"
+	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/rabbitmq/converter/generated"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/vo"
@@ -22,7 +24,8 @@ var _ appport.EventPublisher = (*Publisher)(nil)
 
 // Publisher publishes avatar events to RabbitMQ.
 type Publisher struct {
-	cfg Config
+	cfg  Config
+	conv converter.MessageConverter
 
 	mu              sync.Mutex
 	conn            *amqp091.Connection
@@ -33,7 +36,10 @@ type Publisher struct {
 
 // NewPublisher creates a RabbitMQ event publisher.
 func NewPublisher(cfg Config) (*Publisher, error) {
-	p := &Publisher{cfg: cfg}
+	p := &Publisher{
+		cfg:  cfg,
+		conv: &generated.MessageConverterImpl{},
+	}
 	if !cfg.Enabled() {
 		return p, nil
 	}
@@ -43,29 +49,28 @@ func NewPublisher(cfg Config) (*Publisher, error) {
 		return nil, fmt.Errorf("rabbitmq dial: %w", err)
 	}
 
-	ch, err := conn.Channel()
-	if err != nil {
+	var ch *amqp091.Channel
+	ready := false
+	defer func() {
+		if ready {
+			return
+		}
+		if ch != nil {
+			_ = ch.Close()
+		}
 		_ = conn.Close()
+	}()
+
+	ch, err = conn.Channel()
+	if err != nil {
 		return nil, fmt.Errorf("rabbitmq channel: %w", err)
 	}
 
-	if err := ch.ExchangeDeclare(
-		cfg.Exchange,
-		exchangeType,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	); err != nil {
-		_ = ch.Close()
-		_ = conn.Close()
+	if err := ch.ExchangeDeclare(cfg.Exchange, exchangeType, true, false, false, false, nil); err != nil {
 		return nil, fmt.Errorf("rabbitmq declare exchange: %w", err)
 	}
 
 	if err := ch.Confirm(false); err != nil {
-		_ = ch.Close()
-		_ = conn.Close()
 		return nil, fmt.Errorf("rabbitmq enable publisher confirms: %w", err)
 	}
 
@@ -73,6 +78,7 @@ func NewPublisher(cfg Config) (*Publisher, error) {
 	p.ch = ch
 	p.publishConfirms = ch.NotifyPublish(make(chan amqp091.Confirmation, 1))
 	p.publishReturns = ch.NotifyReturn(make(chan amqp091.Return, 1))
+	ready = true
 	return p, nil
 }
 
@@ -82,9 +88,10 @@ func (p *Publisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarU
 		return errBrokerNotConfigured
 	}
 
-	body, err := converter.AvatarUploadedEventToMessage(event)
+	model := p.conv.AvatarUploadedEventDtoToAvatarUploadedEventModel(event)
+	body, err := easyjson.Marshal(model)
 	if err != nil {
-		return err
+		return fmt.Errorf("encode avatar uploaded event: %w", err)
 	}
 
 	p.mu.Lock()
@@ -129,9 +136,10 @@ func (p *Publisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDe
 		return errBrokerNotConfigured
 	}
 
-	body, err := converter.AvatarDeletedEventToMessage(event)
+	model := p.conv.AvatarDeletedEventDtoToAvatarDeletedEventModel(event)
+	body, err := easyjson.Marshal(model)
 	if err != nil {
-		return err
+		return fmt.Errorf("encode avatar deleted event: %w", err)
 	}
 
 	p.mu.Lock()
@@ -187,17 +195,9 @@ func (p *Publisher) Ping(ctx context.Context) error {
 		return err
 	}
 
-	err := p.ch.ExchangeDeclarePassive(
-		p.cfg.Exchange,
-		exchangeType,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
+	if err := p.ch.ExchangeDeclarePassive(p.cfg.Exchange, exchangeType, true, false, false, false, nil); err != nil {
 		return fmt.Errorf("rabbitmq exchange: %w", err)
 	}
+
 	return nil
 }
