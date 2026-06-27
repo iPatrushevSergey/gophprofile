@@ -16,6 +16,7 @@ import (
 func TestPublishPendingOutboxEvents_Execute(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 6, 13, 12, 0, 0, 0, time.UTC)
+	publishingTimeout := 5 * time.Minute
 
 	t.Run("success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -30,7 +31,9 @@ func TestPublishPendingOutboxEvents_Execute(t *testing.T) {
 			S3Key:    "user-1/avatar-1/original",
 		}
 
-		reader.EXPECT().ListPending(ctx, 10).Return([]dto.OutboxEvent{
+		clock.EXPECT().Now().Return(now)
+		writer.EXPECT().ReleaseStalePublishing(ctx, now.Add(-publishingTimeout)).Return(nil)
+		reader.EXPECT().MarkPublishing(ctx, 10, now).Return([]dto.OutboxEvent{
 			{
 				ID:        "outbox-1",
 				EventType: vo.OutboxEventAvatarUploaded,
@@ -40,10 +43,9 @@ func TestPublishPendingOutboxEvents_Execute(t *testing.T) {
 			},
 		}, nil)
 		publisher.EXPECT().PublishAvatarUploaded(ctx, uploaded).Return(nil)
-		clock.EXPECT().Now().Return(now)
 		writer.EXPECT().MarkPublished(ctx, "outbox-1", now).Return(nil)
 
-		uc := NewPublishPendingOutboxEvents(reader, writer, publisher, clock, 10)
+		uc := NewPublishPendingOutboxEvents(reader, writer, publisher, clock, 10, publishingTimeout)
 		_, err := uc.Execute(ctx, struct{}{})
 		require.NoError(t, err)
 	})
