@@ -16,17 +16,17 @@ import (
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
+	processingbroker "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq"
 	processingminio "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/repository/minio"
-	processingrmq "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/repository/rabbitmq"
 )
 
 // Config holds grouped processor configuration.
 type Config struct {
-	Logger logger.Config          `mapstructure:"logger"`
-	DB     postgres.Config        `mapstructure:"database"`
-	MinIO  processingminio.Config `mapstructure:"minio"`
-	Broker processingrmq.Config   `mapstructure:"broker"`
-	Worker Worker                 `mapstructure:"worker"`
+	Logger logger.Config           `mapstructure:"logger"`
+	DB     postgres.Config         `mapstructure:"database"`
+	MinIO  processingminio.Config  `mapstructure:"minio"`
+	Broker processingbroker.Config `mapstructure:"broker"`
+	Worker Worker                  `mapstructure:"worker"`
 }
 
 // Worker holds background worker settings.
@@ -171,6 +171,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("broker.url", "")
 	v.SetDefault("broker.exchange", "avatars")
 	v.SetDefault("broker.queue", "avatar-processing")
+	v.SetDefault("broker.dead_letter_exchange", "avatars.dlx")
+	v.SetDefault("broker.dead_letter_queue", "avatar-processing.dlq")
+	v.SetDefault("broker.dead_letter_routing_key", "avatar-processing.dlq")
 }
 
 // readConfigFile reads the config file.
