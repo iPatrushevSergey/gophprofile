@@ -217,6 +217,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("broker.exchange", "avatars")
 	v.SetDefault("broker.publish_interval", "5s")
 	v.SetDefault("broker.outbox_batch_size", 100)
+	v.SetDefault("broker.outbox_publishing_timeout", "5m")
 }
 
 // readConfigFile reads the config file.
