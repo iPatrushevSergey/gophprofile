@@ -10,10 +10,11 @@ import (
 
 func TestConfig_Validate(t *testing.T) {
 	cfg := Config{
-		URL:             " amqp://localhost:5672 ",
-		Exchange:        " avatars ",
-		PublishInterval: 5 * time.Second,
-		OutboxBatchSize: 100,
+		URL:                     " amqp://localhost:5672 ",
+		Exchange:                " avatars ",
+		PublishInterval:         5 * time.Second,
+		OutboxBatchSize:         100,
+		OutboxPublishingTimeout: 5 * time.Minute,
 	}
 
 	require.NoError(t, cfg.Validate())
@@ -29,9 +30,10 @@ func TestConfig_Validate_skipsWhenDisabled(t *testing.T) {
 
 func TestConfig_Validate_requiresExchangeWhenEnabled(t *testing.T) {
 	cfg := Config{
-		URL:             "amqp://localhost:5672",
-		PublishInterval: 5 * time.Second,
-		OutboxBatchSize: 100,
+		URL:                     "amqp://localhost:5672",
+		PublishInterval:         5 * time.Second,
+		OutboxBatchSize:         100,
+		OutboxPublishingTimeout: 5 * time.Minute,
 	}
 
 	require.Error(t, cfg.Validate())
