@@ -44,41 +44,13 @@ func NewPublisher(cfg Config) (*Publisher, error) {
 		return p, nil
 	}
 
-	conn, err := amqp091.Dial(cfg.URL)
-	if err != nil {
-		return nil, fmt.Errorf("rabbitmq dial: %w", err)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if err := p.ensurePublishSession(); err != nil {
+		return nil, err
 	}
 
-	var ch *amqp091.Channel
-	ready := false
-	defer func() {
-		if ready {
-			return
-		}
-		if ch != nil {
-			_ = ch.Close()
-		}
-		_ = conn.Close()
-	}()
-
-	ch, err = conn.Channel()
-	if err != nil {
-		return nil, fmt.Errorf("rabbitmq channel: %w", err)
-	}
-
-	if err := ch.ExchangeDeclare(cfg.Exchange, exchangeType, true, false, false, false, nil); err != nil {
-		return nil, fmt.Errorf("rabbitmq declare exchange: %w", err)
-	}
-
-	if err := ch.Confirm(false); err != nil {
-		return nil, fmt.Errorf("rabbitmq enable publisher confirms: %w", err)
-	}
-
-	p.conn = conn
-	p.ch = ch
-	p.publishConfirms = ch.NotifyPublish(make(chan amqp091.Confirmation, 1))
-	p.publishReturns = ch.NotifyReturn(make(chan amqp091.Return, 1))
-	ready = true
 	return p, nil
 }
 
@@ -96,6 +68,10 @@ func (p *Publisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarU
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if err := p.ensurePublishSession(); err != nil {
+		return err
+	}
 
 	if err := p.ch.PublishWithContext(
 		ctx,
@@ -145,6 +121,10 @@ func (p *Publisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDe
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	if err := p.ensurePublishSession(); err != nil {
+		return err
+	}
+
 	if err := p.ch.PublishWithContext(
 		ctx,
 		p.cfg.Exchange,
@@ -184,10 +164,6 @@ func (p *Publisher) Ping(ctx context.Context) error {
 		return errBrokerNotConfigured
 	}
 
-	if p.ch == nil || p.conn == nil || p.conn.IsClosed() {
-		return fmt.Errorf("rabbitmq: not connected")
-	}
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -195,9 +171,66 @@ func (p *Publisher) Ping(ctx context.Context) error {
 		return err
 	}
 
+	if err := p.ensurePublishSession(); err != nil {
+		return err
+	}
+
 	if err := p.ch.ExchangeDeclarePassive(p.cfg.Exchange, exchangeType, true, false, false, false, nil); err != nil {
 		return fmt.Errorf("rabbitmq exchange: %w", err)
 	}
 
+	return nil
+}
+
+// ensurePublishSession opens or restores the RabbitMQ publish session.
+func (p *Publisher) ensurePublishSession() error {
+	if p.ch != nil && p.conn != nil && !p.conn.IsClosed() {
+		return nil
+	}
+
+	if p.ch != nil {
+		_ = p.ch.Close()
+		p.ch = nil
+	}
+	if p.conn != nil {
+		_ = p.conn.Close()
+		p.conn = nil
+	}
+
+	conn, err := amqp091.Dial(p.cfg.URL)
+	if err != nil {
+		return fmt.Errorf("rabbitmq dial: %w", err)
+	}
+
+	var ch *amqp091.Channel
+	ready := false
+	defer func() {
+		if ready {
+			return
+		}
+		if ch != nil {
+			_ = ch.Close()
+		}
+		_ = conn.Close()
+	}()
+
+	ch, err = conn.Channel()
+	if err != nil {
+		return fmt.Errorf("rabbitmq channel: %w", err)
+	}
+
+	if err := ch.ExchangeDeclare(p.cfg.Exchange, exchangeType, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("rabbitmq declare exchange: %w", err)
+	}
+
+	if err := ch.Confirm(false); err != nil {
+		return fmt.Errorf("rabbitmq enable publisher confirms: %w", err)
+	}
+
+	p.conn = conn
+	p.ch = ch
+	p.publishConfirms = ch.NotifyPublish(make(chan amqp091.Confirmation, 1))
+	p.publishReturns = ch.NotifyReturn(make(chan amqp091.Return, 1))
+	ready = true
 	return nil
 }
