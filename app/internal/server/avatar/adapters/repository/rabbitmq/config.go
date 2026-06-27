@@ -8,10 +8,11 @@ import (
 
 // Config holds RabbitMQ publisher settings.
 type Config struct {
-	URL             string        `mapstructure:"url"`
-	Exchange        string        `mapstructure:"exchange"`
-	PublishInterval time.Duration `mapstructure:"publish_interval"`
-	OutboxBatchSize int           `mapstructure:"outbox_batch_size"`
+	URL                     string        `mapstructure:"url"`
+	Exchange                string        `mapstructure:"exchange"`
+	PublishInterval         time.Duration `mapstructure:"publish_interval"`
+	OutboxBatchSize         int           `mapstructure:"outbox_batch_size"`
+	OutboxPublishingTimeout time.Duration `mapstructure:"outbox_publishing_timeout"`
 }
 
 // Validate trims string fields and checks broker settings when a URL is configured.
@@ -34,6 +35,11 @@ func (c *Config) Validate() error {
 	if c.OutboxBatchSize <= 0 {
 		return fmt.Errorf("broker outbox_batch_size must be positive")
 	}
+
+	if c.OutboxPublishingTimeout <= 0 {
+		return fmt.Errorf("broker outbox_publishing_timeout must be positive")
+	}
+
 	return nil
 }
 
