@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
@@ -11,11 +12,12 @@ import (
 
 // PublishPendingOutboxEvents delivers pending outbox records to the message broker.
 type PublishPendingOutboxEvents struct {
-	outboxReader   appport.OutboxReader
-	outboxWriter   appport.OutboxWriter
-	eventPublisher appport.EventPublisher
-	clock          appport.Clock
-	batchSize      int
+	outboxReader      appport.OutboxReader
+	outboxWriter      appport.OutboxWriter
+	eventPublisher    appport.EventPublisher
+	clock             appport.Clock
+	batchSize         int
+	publishingTimeout time.Duration
 }
 
 // NewPublishPendingOutboxEvents returns the publish pending outbox events use case.
@@ -25,19 +27,25 @@ func NewPublishPendingOutboxEvents(
 	eventPublisher appport.EventPublisher,
 	clock appport.Clock,
 	batchSize int,
+	publishingTimeout time.Duration,
 ) appport.UseCase[struct{}, struct{}] {
 	return &PublishPendingOutboxEvents{
-		outboxReader:   outboxReader,
-		outboxWriter:   outboxWriter,
-		eventPublisher: eventPublisher,
-		clock:          clock,
-		batchSize:      batchSize,
+		outboxReader:      outboxReader,
+		outboxWriter:      outboxWriter,
+		eventPublisher:    eventPublisher,
+		clock:             clock,
+		batchSize:         batchSize,
+		publishingTimeout: publishingTimeout,
 	}
 }
 
 // Execute publishes pending outbox records.
 func (uc *PublishPendingOutboxEvents) Execute(ctx context.Context, _ struct{}) (struct{}, error) {
-	events, err := uc.outboxReader.ListPending(ctx, uc.batchSize)
+	if err := uc.outboxWriter.ReleaseStalePublishing(ctx, uc.clock.Now().Add(-uc.publishingTimeout)); err != nil {
+		return struct{}{}, err
+	}
+
+	events, err := uc.outboxReader.MarkPublishing(ctx, uc.batchSize, uc.clock.Now())
 	if err != nil {
 		return struct{}{}, err
 	}
