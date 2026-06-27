@@ -68,7 +68,7 @@ func (r *OutboxRepository) CreateDeleted(ctx context.Context, event dto.OutboxDe
 	})
 }
 
-// MarkPublished marks an outbox record as published.
+// MarkPublished marks a publishing outbox record as published.
 func (r *OutboxRepository) MarkPublished(ctx context.Context, id string, publishedAt time.Time) error {
 	outboxID, err := uuid.Parse(id)
 	if err != nil {
@@ -80,9 +80,9 @@ func (r *OutboxRepository) MarkPublished(ctx context.Context, id string, publish
 
 		tag, err := q.Exec(ctx, `
 			UPDATE avatar_outbox
-			SET status = $2, published_at = $3
-			WHERE id = $1`,
-			outboxID, string(vo.OutboxStatusPublished), publishedAt,
+			SET status = $2, published_at = $3, publishing_at = NULL
+			WHERE id = $1 AND status = $4`,
+			outboxID, string(vo.OutboxStatusPublished), publishedAt, string(vo.OutboxStatusPublishing),
 		)
 		if err != nil {
 			return err
@@ -94,21 +94,41 @@ func (r *OutboxRepository) MarkPublished(ctx context.Context, id string, publish
 	})
 }
 
-// ListPending returns pending outbox events ordered by creation time.
-func (r *OutboxRepository) ListPending(ctx context.Context, limit int) ([]dto.OutboxEvent, error) {
+// ReleaseStalePublishing returns stuck publishing rows back to pending.
+func (r *OutboxRepository) ReleaseStalePublishing(ctx context.Context, publishingBefore time.Time) error {
+	return r.transactor.DoWithRetry(ctx, func() error {
+		q := r.transactor.GetQuerier(ctx)
+
+		_, err := q.Exec(ctx, `
+			UPDATE avatar_outbox
+			SET status = $1, publishing_at = NULL
+			WHERE status = $2 AND publishing_at IS NOT NULL AND publishing_at < $3`,
+			string(vo.OutboxStatusPending), string(vo.OutboxStatusPublishing), publishingBefore,
+		)
+		return err
+	})
+}
+
+// MarkPublishing atomically marks pending outbox events for publishing.
+func (r *OutboxRepository) MarkPublishing(ctx context.Context, limit int, publishingAt time.Time) ([]dto.OutboxEvent, error) {
 	var events []dto.OutboxEvent
 
 	err := r.transactor.DoWithRetry(ctx, func() error {
 		q := r.transactor.GetQuerier(ctx)
 
 		rows, err := q.Query(ctx, `
-			SELECT id, event_type, payload, status, created_at, published_at
-			FROM avatar_outbox
-			WHERE status = $1
-			ORDER BY created_at
-			LIMIT $2
-			FOR UPDATE SKIP LOCKED`,
-			string(vo.OutboxStatusPending), limit,
+			UPDATE avatar_outbox
+			SET status = $1, publishing_at = $2
+			WHERE id IN (
+				SELECT id
+				FROM avatar_outbox
+				WHERE status = $3
+				ORDER BY created_at
+				LIMIT $4
+				FOR UPDATE SKIP LOCKED
+			)
+			RETURNING id, event_type, payload, status, created_at, published_at`,
+			string(vo.OutboxStatusPublishing), publishingAt, string(vo.OutboxStatusPending), limit,
 		)
 		if err != nil {
 			return err
