@@ -9,15 +9,17 @@ import (
 
 // AvatarUseCasesParams contains dependencies required to build avatar use cases.
 type AvatarUseCasesParams struct {
-	AvatarRepo           appport.AvatarRepo
-	AvatarStorage        appport.AvatarStorage
-	EventPublisher       appport.EventPublisher
-	OutboxRepo           appport.OutboxRepo
-	IDGenerator          appport.IDGenerator
-	Transactor           appport.Transactor
-	Clock                appport.Clock
-	OutboxBatchSize      int
-	UploadReservationTTL time.Duration
+	AvatarRepo              appport.AvatarRepo
+	AvatarStorage           appport.AvatarStorage
+	EventPublisher          appport.EventPublisher
+	OutboxRepo              appport.OutboxRepo
+	IDGenerator             appport.IDGenerator
+	Transactor              appport.Transactor
+	Clock                   appport.Clock
+	Logger                  appport.Logger
+	OutboxBatchSize         int
+	OutboxPublishingTimeout time.Duration
+	UploadReservationTTL    time.Duration
 }
 
 // AvatarUseCases holds avatar module use cases exposed to the composition root.
@@ -64,6 +66,7 @@ func NewAvatarUseCases(p AvatarUseCasesParams) *AvatarUseCases {
 			p.AvatarRepo,
 			p.AvatarStorage,
 			p.Clock,
+			p.Logger,
 			p.UploadReservationTTL,
 		),
 		PublishPendingOutboxEvents: NewPublishPendingOutboxEvents(
@@ -72,6 +75,7 @@ func NewAvatarUseCases(p AvatarUseCasesParams) *AvatarUseCases {
 			p.EventPublisher,
 			p.Clock,
 			p.OutboxBatchSize,
+			p.OutboxPublishingTimeout,
 		),
 	}
 }
