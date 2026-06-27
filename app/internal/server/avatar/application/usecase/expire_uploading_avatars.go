@@ -13,6 +13,7 @@ type ExpireUploadingAvatars struct {
 	avatarWriter         appport.AvatarWriter
 	avatarStorage        appport.AvatarStorage
 	clock                appport.Clock
+	log                  appport.Logger
 	uploadReservationTTL time.Duration
 }
 
@@ -22,6 +23,7 @@ func NewExpireUploadingAvatars(
 	avatarWriter appport.AvatarWriter,
 	avatarStorage appport.AvatarStorage,
 	clock appport.Clock,
+	log appport.Logger,
 	uploadReservationTTL time.Duration,
 ) appport.UseCase[struct{}, struct{}] {
 	return &ExpireUploadingAvatars{
@@ -29,6 +31,7 @@ func NewExpireUploadingAvatars(
 		avatarWriter:         avatarWriter,
 		avatarStorage:        avatarStorage,
 		clock:                clock,
+		log:                  log,
 		uploadReservationTTL: uploadReservationTTL,
 	}
 }
@@ -47,11 +50,20 @@ func (uc *ExpireUploadingAvatars) Execute(ctx context.Context, _ struct{}) (stru
 	for _, avatar := range avatars {
 		if uc.avatarStorage != nil {
 			if err := uc.avatarStorage.Delete(ctx, avatar.S3Key); err != nil {
-				return struct{}{}, err
+				uc.log.Error("expire uploading avatar: delete object failed",
+					"error", err,
+					"avatar_id", avatar.ID,
+					"s3_key", avatar.S3Key,
+				)
+				continue
 			}
 		}
 		if err := uc.avatarWriter.MarkUploadFailed(ctx, avatar.ID, now); err != nil {
-			return struct{}{}, err
+			uc.log.Error("expire uploading avatar: mark upload failed",
+				"error", err,
+				"avatar_id", avatar.ID,
+			)
+			continue
 		}
 	}
 
