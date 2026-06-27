@@ -13,10 +13,14 @@ type MessageConverterImpl struct{}
 func (c *MessageConverterImpl) AvatarDeletedEventDtoToAvatarDeletedEventModel(source dto.AvatarDeletedEvent) model.AvatarDeletedEvent {
 	var modelAvatarDeletedEvent model.AvatarDeletedEvent
 	modelAvatarDeletedEvent.AvatarID = source.AvatarID
-	modelAvatarDeletedEvent.S3Keys = source.S3Keys
+	if source.S3Keys != nil {
+		modelAvatarDeletedEvent.S3Keys = make([]string, len(source.S3Keys))
+		for i := 0; i < len(source.S3Keys); i++ {
+			modelAvatarDeletedEvent.S3Keys[i] = source.S3Keys[i]
+		}
+	}
 	return modelAvatarDeletedEvent
 }
-
 func (c *MessageConverterImpl) AvatarUploadedEventDtoToAvatarUploadedEventModel(source dto.AvatarUploadedEvent) model.AvatarUploadedEvent {
 	var modelAvatarUploadedEvent model.AvatarUploadedEvent
 	modelAvatarUploadedEvent.AvatarID = source.AvatarID
