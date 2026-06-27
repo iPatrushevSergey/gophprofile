@@ -1,5 +1,7 @@
 package dto
 
+//go:generate go run github.com/mailru/easyjson/easyjson@v0.9.0 -all $GOFILE
+
 import "time"
 
 // UploadAvatarRequest is a presentation request for avatar upload.
