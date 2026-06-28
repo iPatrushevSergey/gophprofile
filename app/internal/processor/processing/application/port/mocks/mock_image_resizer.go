@@ -40,6 +40,22 @@ func (m *MockImageResizer) EXPECT() *MockImageResizerMockRecorder {
 	return m.recorder
 }
 
+// Dimensions mocks base method.
+func (m *MockImageResizer) Dimensions(data []byte) (int, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Dimensions", data)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Dimensions indicates an expected call of Dimensions.
+func (mr *MockImageResizerMockRecorder) Dimensions(data any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dimensions", reflect.TypeOf((*MockImageResizer)(nil).Dimensions), data)
+}
+
 // Resize mocks base method.
 func (m *MockImageResizer) Resize(ctx context.Context, data []byte, width, height int) ([]byte, error) {
 	m.ctrl.T.Helper()
