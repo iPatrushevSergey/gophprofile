@@ -33,3 +33,4 @@ broker:
   exchange: avatars
   publish_interval: "5s"
   outbox_batch_size: 100
+  outbox_publishing_timeout: "5m"
