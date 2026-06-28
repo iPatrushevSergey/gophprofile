@@ -70,6 +70,11 @@ func (uc *ProcessUploadedAvatar) Execute(ctx context.Context, in dto.ProcessUplo
 		return fail(err)
 	}
 
+	width, height, err := uc.imageResizer.Dimensions(original)
+	if err != nil {
+		return fail(err)
+	}
+
 	sizes := []struct {
 		size   vo.ThumbnailSize
 		width  int
@@ -97,6 +102,8 @@ func (uc *ProcessUploadedAvatar) Execute(ctx context.Context, in dto.ProcessUplo
 	if err := uc.avatarWriter.CompleteProcessing(ctx, dto.CompleteProcessingInput{
 		AvatarID:        in.AvatarID,
 		ThumbnailS3Keys: thumbnailKeys,
+		Width:           width,
+		Height:          height,
 		UpdatedAt:       uc.clock.Now(),
 	}); err != nil {
 		return fail(err)
