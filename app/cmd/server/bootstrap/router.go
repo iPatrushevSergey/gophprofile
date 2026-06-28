@@ -39,5 +39,9 @@ func NewGlobalRouter(useCases GlobalUseCases, log *zaplogger.ZapLogger) (*echo.E
 
 	avatarrouter.RegisterAvatarRoutes(r, public, protected, useCases, log)
 
+	r.GET("/web", func(c echo.Context) error {
+		return c.File("web/static/index.html")
+	})
+
 	return r, nil
 }
