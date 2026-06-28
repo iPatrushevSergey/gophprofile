@@ -58,8 +58,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("broker retry_return_routing_key is required")
 	}
 
-	if c.RetryTTL <= 0 {
-		return fmt.Errorf("broker retry_ttl must be positive")
+	if c.RetryTTL < time.Millisecond {
+		return fmt.Errorf("broker retry_ttl must be at least 1ms")
 	}
 
 	if c.MaxRetries <= 0 {
