@@ -174,6 +174,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("broker.dead_letter_exchange", "avatars.dlx")
 	v.SetDefault("broker.dead_letter_queue", "avatar-processing.dlq")
 	v.SetDefault("broker.dead_letter_routing_key", "avatar-processing.dlq")
+	v.SetDefault("broker.retry_queue", "avatar-processing.retry")
+	v.SetDefault("broker.retry_exchange", "avatars.retry.dlx")
+	v.SetDefault("broker.retry_return_routing_key", "back")
+	v.SetDefault("broker.retry_ttl", "30s")
+	v.SetDefault("broker.max_retries", 5)
 	v.SetDefault("broker.reconnect_interval", "1s")
 }
 
