@@ -23,8 +23,8 @@ func TestAvatarConverter_roundTrip(t *testing.T) {
 		MimeType:  "image/png",
 		SizeBytes: 5,
 		S3Key:     "user-1/avatar-1/original",
-		ThumbnailS3Keys: map[vo.ThumbnailSize]string{
-			vo.ThumbnailSize100: "user-1/avatar-1/100x100",
+		ThumbnailS3Keys: map[vo.ThumbnailSize]map[vo.OutputFormat]string{
+			vo.ThumbnailSize100: {vo.OutputFormatJPEG: "user-1/avatar-1/100x100/jpeg"},
 		},
 		UploadStatus:     vo.UploadStatusCompleted,
 		ProcessingStatus: vo.ProcessingStatusPending,
