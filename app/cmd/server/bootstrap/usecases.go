@@ -20,6 +20,7 @@ type globalUseCases struct {
 	upload                     appport.UseCase[appdto.UploadAvatarInput, appdto.UploadAvatarOutput]
 	get                        appport.UseCase[appdto.GetAvatarInput, appdto.GetAvatarOutput]
 	getMetadata                appport.UseCase[appdto.GetAvatarMetadataInput, appdto.AvatarMetadataOutput]
+	list                       appport.UseCase[appdto.ListUserAvatarsInput, appdto.ListUserAvatarsOutput]
 	delete                     appport.UseCase[appdto.DeleteAvatarInput, struct{}]
 	health                     appport.UseCase[struct{}, appdto.HealthCheckOutput]
 	expireUploadingAvatars     appport.UseCase[struct{}, struct{}]
@@ -52,6 +53,7 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 		upload:                     avatarUseCases.Upload,
 		get:                        avatarUseCases.Get,
 		getMetadata:                avatarUseCases.GetMetadata,
+		list:                       avatarUseCases.ListByUser,
 		delete:                     avatarUseCases.Delete,
 		health:                     avatarUseCases.Health,
 		expireUploadingAvatars:     avatarUseCases.ExpireUploadingAvatars,
@@ -72,6 +74,11 @@ func (f *globalUseCases) GetUseCase() appport.UseCase[appdto.GetAvatarInput, app
 // GetMetadataUseCase returns the get avatar metadata use case.
 func (f *globalUseCases) GetMetadataUseCase() appport.UseCase[appdto.GetAvatarMetadataInput, appdto.AvatarMetadataOutput] {
 	return f.getMetadata
+}
+
+// ListByUserUseCase returns the list user avatars use case.
+func (f *globalUseCases) ListByUserUseCase() appport.UseCase[appdto.ListUserAvatarsInput, appdto.ListUserAvatarsOutput] {
+	return f.list
 }
 
 // DeleteUseCase returns the delete avatar use case.
