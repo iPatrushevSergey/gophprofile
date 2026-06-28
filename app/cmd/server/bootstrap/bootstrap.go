@@ -85,7 +85,9 @@ func Run() error {
 		WithOutboxRepo(avatarpostgres.NewOutboxRepository(transactor)),
 		WithIDGenerator(avatargenerator.NewIDGenerator()),
 		WithClock(avatarclock.NewRealClock()),
+		WithLogger(log),
 		WithOutboxBatchSize(cfg.Broker.OutboxBatchSize),
+		WithOutboxPublishingTimeout(cfg.Broker.OutboxPublishingTimeout),
 		WithUploadReservationTTL(cfg.MinIO.UploadReservationTTL),
 	}
 
