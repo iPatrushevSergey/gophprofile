@@ -4,7 +4,6 @@ package dto
 
 import (
 	json "encoding/json"
-
 	easyjson "github.com/mailru/easyjson"
 	jlexer "github.com/mailru/easyjson/jlexer"
 	jwriter "github.com/mailru/easyjson/jwriter"
@@ -18,7 +17,105 @@ var (
 	_ easyjson.Marshaler
 )
 
-func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(in *jlexer.Lexer, out *UploadAvatarResponse) {
+func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(in *jlexer.Lexer, out *UserAvatarsResponse) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeFieldName(false)
+		in.WantColon()
+		if in.IsNull() {
+			in.Skip()
+			in.WantComma()
+			continue
+		}
+		switch key {
+		case "items":
+			if in.IsNull() {
+				in.Skip()
+				out.Items = nil
+			} else {
+				in.Delim('[')
+				if out.Items == nil {
+					if !in.IsDelim(']') {
+						out.Items = make([]AvatarMetadataResponse, 0, 0)
+					} else {
+						out.Items = []AvatarMetadataResponse{}
+					}
+				} else {
+					out.Items = (out.Items)[:0]
+				}
+				for !in.IsDelim(']') {
+					var v1 AvatarMetadataResponse
+					(v1).UnmarshalEasyJSON(in)
+					out.Items = append(out.Items, v1)
+					in.WantComma()
+				}
+				in.Delim(']')
+			}
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(out *jwriter.Writer, in UserAvatarsResponse) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"items\":"
+		out.RawString(prefix[1:])
+		if in.Items == nil && (out.Flags&jwriter.NilSliceAsEmpty) == 0 {
+			out.RawString("null")
+		} else {
+			out.RawByte('[')
+			for v2, v3 := range in.Items {
+				if v2 > 0 {
+					out.RawByte(',')
+				}
+				(v3).MarshalEasyJSON(out)
+			}
+			out.RawByte(']')
+		}
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v UserAvatarsResponse) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v UserAvatarsResponse) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *UserAvatarsResponse) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *UserAvatarsResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(l, v)
+}
+func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(in *jlexer.Lexer, out *UploadAvatarResponse) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -59,7 +156,7 @@ func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 		in.Consumed()
 	}
 }
-func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(out *jwriter.Writer, in UploadAvatarResponse) {
+func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(out *jwriter.Writer, in UploadAvatarResponse) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -94,27 +191,27 @@ func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 // MarshalJSON supports json.Marshaler interface
 func (v UploadAvatarResponse) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(&w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v UploadAvatarResponse) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *UploadAvatarResponse) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(&r, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *UploadAvatarResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto(l, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(l, v)
 }
-func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(in *jlexer.Lexer, out *UploadAvatarRequest) {
+func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(in *jlexer.Lexer, out *UploadAvatarRequest) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -154,7 +251,7 @@ func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 		in.Consumed()
 	}
 }
-func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(out *jwriter.Writer, in UploadAvatarRequest) {
+func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(out *jwriter.Writer, in UploadAvatarRequest) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -179,27 +276,27 @@ func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 // MarshalJSON supports json.Marshaler interface
 func (v UploadAvatarRequest) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(&w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v UploadAvatarRequest) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *UploadAvatarRequest) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(&r, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *UploadAvatarRequest) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto1(l, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(l, v)
 }
-func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(in *jlexer.Lexer, out *ThumbnailURL) {
+func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(in *jlexer.Lexer, out *ThumbnailURL) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -232,7 +329,7 @@ func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 		in.Consumed()
 	}
 }
-func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(out *jwriter.Writer, in ThumbnailURL) {
+func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(out *jwriter.Writer, in ThumbnailURL) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -252,27 +349,100 @@ func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 // MarshalJSON supports json.Marshaler interface
 func (v ThumbnailURL) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(&w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v ThumbnailURL) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *ThumbnailURL) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(&r, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *ThumbnailURL) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto2(l, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(l, v)
 }
-func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(in *jlexer.Lexer, out *HealthResponse) {
+func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(in *jlexer.Lexer, out *ImageDimensions) {
+	isTopLevel := in.IsStart()
+	if in.IsNull() {
+		if isTopLevel {
+			in.Consumed()
+		}
+		in.Skip()
+		return
+	}
+	in.Delim('{')
+	for !in.IsDelim('}') {
+		key := in.UnsafeFieldName(false)
+		in.WantColon()
+		if in.IsNull() {
+			in.Skip()
+			in.WantComma()
+			continue
+		}
+		switch key {
+		case "width":
+			out.Width = int(in.Int())
+		case "height":
+			out.Height = int(in.Int())
+		default:
+			in.SkipRecursive()
+		}
+		in.WantComma()
+	}
+	in.Delim('}')
+	if isTopLevel {
+		in.Consumed()
+	}
+}
+func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(out *jwriter.Writer, in ImageDimensions) {
+	out.RawByte('{')
+	first := true
+	_ = first
+	{
+		const prefix string = ",\"width\":"
+		out.RawString(prefix[1:])
+		out.Int(int(in.Width))
+	}
+	{
+		const prefix string = ",\"height\":"
+		out.RawString(prefix)
+		out.Int(int(in.Height))
+	}
+	out.RawByte('}')
+}
+
+// MarshalJSON supports json.Marshaler interface
+func (v ImageDimensions) MarshalJSON() ([]byte, error) {
+	w := jwriter.Writer{}
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(&w, v)
+	return w.Buffer.BuildBytes(), w.Error
+}
+
+// MarshalEasyJSON supports easyjson.Marshaler interface
+func (v ImageDimensions) MarshalEasyJSON(w *jwriter.Writer) {
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(w, v)
+}
+
+// UnmarshalJSON supports json.Unmarshaler interface
+func (v *ImageDimensions) UnmarshalJSON(data []byte) error {
+	r := jlexer.Lexer{Data: data}
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(&r, v)
+	return r.Error()
+}
+
+// UnmarshalEasyJSON supports easyjson.Unmarshaler interface
+func (v *ImageDimensions) UnmarshalEasyJSON(l *jlexer.Lexer) {
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(l, v)
+}
+func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(in *jlexer.Lexer, out *HealthResponse) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -309,7 +479,7 @@ func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 		in.Consumed()
 	}
 }
-func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(out *jwriter.Writer, in HealthResponse) {
+func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(out *jwriter.Writer, in HealthResponse) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -339,27 +509,27 @@ func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 // MarshalJSON supports json.Marshaler interface
 func (v HealthResponse) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(&w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v HealthResponse) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *HealthResponse) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(&r, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *HealthResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto3(l, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(l, v)
 }
-func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(in *jlexer.Lexer, out *ErrorResponse) {
+func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto6(in *jlexer.Lexer, out *ErrorResponse) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -394,7 +564,7 @@ func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 		in.Consumed()
 	}
 }
-func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(out *jwriter.Writer, in ErrorResponse) {
+func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto6(out *jwriter.Writer, in ErrorResponse) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -419,27 +589,27 @@ func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 // MarshalJSON supports json.Marshaler interface
 func (v ErrorResponse) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(&w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto6(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v ErrorResponse) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto6(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *ErrorResponse) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(&r, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto6(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *ErrorResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto4(l, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto6(l, v)
 }
-func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(in *jlexer.Lexer, out *AvatarMetadataResponse) {
+func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto7(in *jlexer.Lexer, out *AvatarMetadataResponse) {
 	isTopLevel := in.IsStart()
 	if in.IsNull() {
 		if isTopLevel {
@@ -468,6 +638,16 @@ func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 			out.MimeType = string(in.String())
 		case "size_bytes":
 			out.SizeBytes = int64(in.Int64())
+		case "dimensions":
+			if in.IsNull() {
+				in.Skip()
+				out.Dimensions = nil
+			} else {
+				if out.Dimensions == nil {
+					out.Dimensions = new(ImageDimensions)
+				}
+				(*out.Dimensions).UnmarshalEasyJSON(in)
+			}
 		case "thumbnails":
 			if in.IsNull() {
 				in.Skip()
@@ -484,9 +664,9 @@ func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 					out.Thumbnails = (out.Thumbnails)[:0]
 				}
 				for !in.IsDelim(']') {
-					var v4 ThumbnailURL
-					(v4).UnmarshalEasyJSON(in)
-					out.Thumbnails = append(out.Thumbnails, v4)
+					var v7 ThumbnailURL
+					(v7).UnmarshalEasyJSON(in)
+					out.Thumbnails = append(out.Thumbnails, v7)
 					in.WantComma()
 				}
 				in.Delim(']')
@@ -509,7 +689,7 @@ func easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 		in.Consumed()
 	}
 }
-func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(out *jwriter.Writer, in AvatarMetadataResponse) {
+func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto7(out *jwriter.Writer, in AvatarMetadataResponse) {
 	out.RawByte('{')
 	first := true
 	_ = first
@@ -538,6 +718,11 @@ func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 		out.RawString(prefix)
 		out.Int64(int64(in.SizeBytes))
 	}
+	if in.Dimensions != nil {
+		const prefix string = ",\"dimensions\":"
+		out.RawString(prefix)
+		(*in.Dimensions).MarshalEasyJSON(out)
+	}
 	{
 		const prefix string = ",\"thumbnails\":"
 		out.RawString(prefix)
@@ -545,11 +730,11 @@ func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 			out.RawString("null")
 		} else {
 			out.RawByte('[')
-			for v5, v6 := range in.Thumbnails {
-				if v5 > 0 {
+			for v8, v9 := range in.Thumbnails {
+				if v8 > 0 {
 					out.RawByte(',')
 				}
-				(v6).MarshalEasyJSON(out)
+				(v9).MarshalEasyJSON(out)
 			}
 			out.RawByte(']')
 		}
@@ -570,23 +755,23 @@ func easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServer
 // MarshalJSON supports json.Marshaler interface
 func (v AvatarMetadataResponse) MarshalJSON() ([]byte, error) {
 	w := jwriter.Writer{}
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(&w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto7(&w, v)
 	return w.Buffer.BuildBytes(), w.Error
 }
 
 // MarshalEasyJSON supports easyjson.Marshaler interface
 func (v AvatarMetadataResponse) MarshalEasyJSON(w *jwriter.Writer) {
-	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(w, v)
+	easyjson97d7cd47EncodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto7(w, v)
 }
 
 // UnmarshalJSON supports json.Unmarshaler interface
 func (v *AvatarMetadataResponse) UnmarshalJSON(data []byte) error {
 	r := jlexer.Lexer{Data: data}
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(&r, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto7(&r, v)
 	return r.Error()
 }
 
 // UnmarshalEasyJSON supports easyjson.Unmarshaler interface
 func (v *AvatarMetadataResponse) UnmarshalEasyJSON(l *jlexer.Lexer) {
-	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto5(l, v)
+	easyjson97d7cd47DecodeGithubComIPatrushevSergeyGophprofileAppInternalServerAvatarPresentationHttpDto7(l, v)
 }
