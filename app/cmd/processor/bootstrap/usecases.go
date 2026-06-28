@@ -30,11 +30,11 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 	p.validate()
 
 	processingUseCases := processingappusecase.NewProcessingUseCases(processingappusecase.ProcessingUseCasesParams{
-		AvatarRepo:    p.avatarRepo,
-		AvatarStorage: p.avatarStorage,
-		ImageResizer:  p.imageResizer,
-		EventConsumer: p.eventConsumer,
-		Clock:         p.clock,
+		AvatarRepo:     p.avatarRepo,
+		AvatarStorage:  p.avatarStorage,
+		ImageProcessor: p.imageProcessor,
+		EventConsumer:  p.eventConsumer,
+		Clock:          p.clock,
 	})
 
 	return &globalUseCases{
@@ -67,11 +67,11 @@ func (f *globalUseCases) PurgeDeletedUseCase() appport.UseCase[appdto.PurgeDelet
 
 // globalUseCasesParams holds dependencies required to build global use cases.
 type globalUseCasesParams struct {
-	avatarRepo    appport.AvatarRepo
-	avatarStorage appport.AvatarStorage
-	imageResizer  appport.ImageResizer
-	eventConsumer appport.EventConsumer
-	clock         appport.Clock
+	avatarRepo     appport.AvatarRepo
+	avatarStorage  appport.AvatarStorage
+	imageProcessor appport.ImageProcessor
+	eventConsumer  appport.EventConsumer
+	clock          appport.Clock
 }
 
 // validate validates the global use cases parameters.
@@ -82,8 +82,8 @@ func (p globalUseCasesParams) validate() {
 	if p.avatarStorage == nil {
 		panic("NewGlobalUseCases: WithAvatarStorage is required")
 	}
-	if p.imageResizer == nil {
-		panic("NewGlobalUseCases: WithImageResizer is required")
+	if p.imageProcessor == nil {
+		panic("NewGlobalUseCases: WithImageProcessor is required")
 	}
 	if p.eventConsumer == nil {
 		panic("NewGlobalUseCases: WithEventConsumer is required")
@@ -103,9 +103,9 @@ func WithAvatarStorage(s appport.AvatarStorage) apputil.Option[globalUseCasesPar
 	return func(p *globalUseCasesParams) { p.avatarStorage = s }
 }
 
-// WithImageResizer sets the image resizer adapter.
-func WithImageResizer(r appport.ImageResizer) apputil.Option[globalUseCasesParams] {
-	return func(p *globalUseCasesParams) { p.imageResizer = r }
+// WithImageProcessor sets the image processor adapter.
+func WithImageProcessor(p appport.ImageProcessor) apputil.Option[globalUseCasesParams] {
+	return func(params *globalUseCasesParams) { params.imageProcessor = p }
 }
 
 // WithEventConsumer sets the broker event consumer adapter.
