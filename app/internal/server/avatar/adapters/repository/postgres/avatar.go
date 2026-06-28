@@ -45,7 +45,7 @@ func (r *AvatarRepository) FindByID(ctx context.Context, id string) (*entity.Ava
 
 		rows, err := q.Query(ctx, `
 			SELECT
-				id, user_id, file_name, mime_type, size_bytes, s3_key, thumbnail_s3_keys,
+				id, user_id, file_name, mime_type, size_bytes, width, height, s3_key, thumbnail_s3_keys,
 				upload_status, processing_status, created_at, updated_at, deleted_at
 			FROM avatars
 			WHERE id = $1 AND deleted_at IS NULL AND upload_status = $2`,
@@ -82,7 +82,7 @@ func (r *AvatarRepository) ListByUserID(ctx context.Context, userID string) ([]e
 
 		rows, err := q.Query(ctx, `
 			SELECT
-				id, user_id, file_name, mime_type, size_bytes, s3_key, thumbnail_s3_keys,
+				id, user_id, file_name, mime_type, size_bytes, width, height, s3_key, thumbnail_s3_keys,
 				upload_status, processing_status, created_at, updated_at, deleted_at
 			FROM avatars
 			WHERE user_id = $1 AND deleted_at IS NULL AND upload_status = $2
@@ -124,7 +124,7 @@ func (r *AvatarRepository) ListExpiredUploading(ctx context.Context, before time
 
 		rows, err := q.Query(ctx, `
 			SELECT
-				id, user_id, file_name, mime_type, size_bytes, s3_key, thumbnail_s3_keys,
+				id, user_id, file_name, mime_type, size_bytes, width, height, s3_key, thumbnail_s3_keys,
 				upload_status, processing_status, created_at, updated_at, deleted_at
 			FROM avatars
 			WHERE upload_status = $1 AND created_at < $2 AND deleted_at IS NULL`,
@@ -167,13 +167,13 @@ func (r *AvatarRepository) Create(ctx context.Context, avatar *entity.Avatar) er
 
 		_, err = q.Exec(ctx, `
 			INSERT INTO avatars (
-				id, user_id, file_name, mime_type, size_bytes, s3_key, thumbnail_s3_keys,
+				id, user_id, file_name, mime_type, size_bytes, width, height, s3_key, thumbnail_s3_keys,
 				upload_status, processing_status, created_at, updated_at
 			)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 			dbAvatar.ID, dbAvatar.UserID, dbAvatar.FileName, dbAvatar.MimeType, dbAvatar.SizeBytes,
-			dbAvatar.S3Key, dbAvatar.ThumbnailS3Keys, dbAvatar.UploadStatus, dbAvatar.ProcessingStatus,
-			dbAvatar.CreatedAt, dbAvatar.UpdatedAt,
+			dbAvatar.Width, dbAvatar.Height, dbAvatar.S3Key, dbAvatar.ThumbnailS3Keys, dbAvatar.UploadStatus,
+			dbAvatar.ProcessingStatus, dbAvatar.CreatedAt, dbAvatar.UpdatedAt,
 		)
 		return err
 	})
