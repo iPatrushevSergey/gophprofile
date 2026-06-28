@@ -29,7 +29,9 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 		vo.UploadStatusCompleted,
 		now,
 	)
-	avatar.ThumbnailS3Keys[vo.ThumbnailSize100] = "user-1/avatar-1/100x100"
+	avatar.ThumbnailS3Keys = map[vo.ThumbnailSize]map[vo.OutputFormat]string{
+		vo.ThumbnailSize100: {vo.OutputFormatJPEG: "user-1/avatar-1/100x100/jpeg"},
+	}
 
 	t.Run("success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -52,7 +54,7 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 			CreatedAt: now,
 			Event: dto.AvatarDeletedEvent{
 				AvatarID: "avatar-1",
-				S3Keys:   []string{"user-1/avatar-1/original", "user-1/avatar-1/100x100"},
+				S3Keys:   []string{"user-1/avatar-1/original", "user-1/avatar-1/100x100/jpeg"},
 			},
 		}).Return(nil)
 
