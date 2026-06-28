@@ -25,6 +25,8 @@ import (
 // goverter:extend ProcessingStatusToString
 // goverter:extend RawMessageToThumbnailS3Keys
 // goverter:extend ThumbnailS3KeysToRawMessage
+// goverter:extend IntPtrToInt
+// goverter:extend IntToIntPtr
 type AvatarConverter interface {
 	AvatarModelToAvatarEntity(source model.Avatar) (entity.Avatar, error)
 	AvatarEntityToAvatarModel(source entity.Avatar) (model.Avatar, error)
@@ -70,21 +72,21 @@ func ProcessingStatusToString(status vo.ProcessingStatus) string {
 	return string(status)
 }
 
-// RawMessageToThumbnailS3Keys converts JSONB to thumbnail keys map.
-func RawMessageToThumbnailS3Keys(raw json.RawMessage) (map[vo.ThumbnailSize]string, error) {
+// RawMessageToThumbnailS3Keys converts JSONB to thumbnail variant keys.
+func RawMessageToThumbnailS3Keys(raw json.RawMessage) (map[vo.ThumbnailSize]map[vo.OutputFormat]string, error) {
 	if len(raw) == 0 {
-		return make(map[vo.ThumbnailSize]string), nil
+		return make(map[vo.ThumbnailSize]map[vo.OutputFormat]string), nil
 	}
 
-	keys := make(map[vo.ThumbnailSize]string)
+	keys := make(map[vo.ThumbnailSize]map[vo.OutputFormat]string)
 	if err := json.Unmarshal(raw, &keys); err != nil {
 		return nil, err
 	}
 	return keys, nil
 }
 
-// ThumbnailS3KeysToRawMessage converts thumbnail keys map to JSONB.
-func ThumbnailS3KeysToRawMessage(keys map[vo.ThumbnailSize]string) (json.RawMessage, error) {
+// ThumbnailS3KeysToRawMessage converts thumbnail variant keys to JSONB.
+func ThumbnailS3KeysToRawMessage(keys map[vo.ThumbnailSize]map[vo.OutputFormat]string) (json.RawMessage, error) {
 	if len(keys) == 0 {
 		return nil, nil
 	}
@@ -94,4 +96,20 @@ func ThumbnailS3KeysToRawMessage(keys map[vo.ThumbnailSize]string) (json.RawMess
 		return nil, err
 	}
 	return raw, nil
+}
+
+// IntPtrToInt converts nullable DB integer to domain int (0 when NULL).
+func IntPtrToInt(v *int) int {
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
+// IntToIntPtr converts domain int to nullable DB integer (NULL when 0).
+func IntToIntPtr(v int) *int {
+	if v == 0 {
+		return nil
+	}
+	return &v
 }
