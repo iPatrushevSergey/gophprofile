@@ -11,12 +11,17 @@ RUN CGO_ENABLED=0 go build -tags=go_json -o /out/processor ./app/cmd/processor
 
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates \
+    && addgroup -S gophprofile \
+    && adduser -S gophprofile -G gophprofile -h /app
 
 WORKDIR /app
 
 COPY --from=builder /out/processor /app/processor
-COPY --from=builder /src/migrations /src/migrations
 COPY app/configs/processor.yaml /app/configs/processor.yaml
+
+RUN chown -R gophprofile:gophprofile /app
+
+USER gophprofile
 
 ENTRYPOINT ["/app/processor", "-c", "/app/configs/processor.yaml"]
