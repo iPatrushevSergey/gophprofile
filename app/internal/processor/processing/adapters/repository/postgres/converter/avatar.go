@@ -44,13 +44,13 @@ func ProcessingStatusToString(status vo.ProcessingStatus) string {
 	return string(status)
 }
 
-// RawMessageToThumbnailS3Keys converts JSONB to thumbnail keys map.
-func RawMessageToThumbnailS3Keys(raw json.RawMessage) (map[vo.ThumbnailSize]string, error) {
+// RawMessageToThumbnailS3Keys converts JSONB to thumbnail variant keys.
+func RawMessageToThumbnailS3Keys(raw json.RawMessage) (map[vo.ThumbnailSize]map[vo.OutputFormat]string, error) {
 	if len(raw) == 0 {
-		return make(map[vo.ThumbnailSize]string), nil
+		return make(map[vo.ThumbnailSize]map[vo.OutputFormat]string), nil
 	}
 
-	keys := make(map[vo.ThumbnailSize]string)
+	keys := make(map[vo.ThumbnailSize]map[vo.OutputFormat]string)
 	if err := json.Unmarshal(raw, &keys); err != nil {
 		return nil, err
 	}
