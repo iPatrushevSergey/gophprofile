@@ -174,6 +174,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("broker.dead_letter_exchange", "avatars.dlx")
 	v.SetDefault("broker.dead_letter_queue", "avatar-processing.dlq")
 	v.SetDefault("broker.dead_letter_routing_key", "avatar-processing.dlq")
+	v.SetDefault("broker.reconnect_interval", "1s")
 }
 
 // readConfigFile reads the config file.
