@@ -35,11 +35,14 @@ func SetupMinIO(tb testing.TB) *avatarminio.AvatarStorage {
 	endpoint, err := container.ConnectionString(ctx)
 	require.NoError(tb, err)
 
-	return avatarminio.NewAvatarStorage(avatarminio.Config{
+	storage, err := avatarminio.NewAvatarStorage(avatarminio.Config{
 		Endpoint:  endpoint,
 		AccessKey: testMinIOUser,
 		SecretKey: testMinIOPass,
 		Bucket:    testMinIOBucket,
 		UseSSL:    false,
 	})
+	require.NoError(tb, err)
+
+	return storage
 }
