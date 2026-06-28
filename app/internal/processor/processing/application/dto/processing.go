@@ -22,7 +22,7 @@ type PurgeDeletedAvatarInput struct {
 // CompleteProcessingInput is application input for completing avatar processing.
 type CompleteProcessingInput struct {
 	AvatarID        string
-	ThumbnailS3Keys map[vo.ThumbnailSize]string
+	ThumbnailS3Keys map[vo.ThumbnailSize]map[vo.OutputFormat]string
 	Width           int
 	Height          int
 	UpdatedAt       time.Time
