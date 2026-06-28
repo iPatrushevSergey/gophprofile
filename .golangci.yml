@@ -1,0 +1,21 @@
+version: "2"
+
+run:
+  timeout: 5m
+  build-tags:
+    - go_json
+  go: "1.26"
+  tests: true
+
+linters:
+  default: standard
+  exclusions:
+    generated: lax
+    paths:
+      - .*_easyjson\.go$
+      - .*_gen\.go$
+      - .*/mocks/mock_.*\.go$
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -54,7 +54,7 @@ func (h *AvatarHandler) Upload(c echo.Context) error {
 		h.log.Error("open upload file failed", "error", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	content, err := io.ReadAll(file)
 	if err != nil {

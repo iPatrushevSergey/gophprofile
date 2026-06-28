@@ -17,9 +17,9 @@ type Address struct {
 	Port   int
 }
 
-// Set implements flag.Value. 
+// Set implements flag.Value.
 func (a *Address) Set(s string) error {
-	if !(strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")) {
+	if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
 		s = "http://" + s
 	}
 

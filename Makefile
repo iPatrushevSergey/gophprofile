@@ -4,7 +4,7 @@
 	docker-up docker-down docker-ps docker-migrate \
 	test test-unit test-contract test-component test-integration test-e2e test-all \
 	cover cover-unit cover-integration migrate generate-mocks \
-	generate-easyjson generate-goverter
+	generate-easyjson generate-goverter lint
 
 APP_DIR := app
 BIN_DIR := $(APP_DIR)/bin
@@ -130,3 +130,7 @@ generate-easyjson:
 # Regenerate goverter converters.
 generate-goverter:
 	bash scripts/generate-goverter.sh
+
+# Static analysis (golangci-lint).
+lint:
+	golangci-lint run ./app/...

@@ -40,7 +40,7 @@ func Run() error {
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
-	defer log.Sync()
+	defer func() { _ = log.Sync() }()
 
 	// Log server startup details.
 	log.Info("starting gophprofile server",

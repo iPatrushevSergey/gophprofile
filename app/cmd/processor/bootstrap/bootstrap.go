@@ -38,7 +38,7 @@ func Run() error {
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
-	defer log.Sync()
+	defer func() { _ = log.Sync() }()
 
 	// Log processor startup details.
 	log.Info("starting gophprofile processor",

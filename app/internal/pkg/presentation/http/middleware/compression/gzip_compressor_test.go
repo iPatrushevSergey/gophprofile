@@ -22,7 +22,7 @@ func TestNewGzipCompressor(t *testing.T) {
 
 	r, err := c.NewReader(&buf)
 	require.NoError(t, err)
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 }
 
 func TestNewGzipCompressor_invalidLevel(t *testing.T) {

@@ -186,7 +186,7 @@ func writePEM(path, blockType string, der []byte, mode os.FileMode) error {
 	if err != nil {
 		return fmt.Errorf("open %s: %w", path, err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	if err := pem.Encode(file, &pem.Block{Type: blockType, Bytes: der}); err != nil {
 		return fmt.Errorf("write %s: %w", path, err)

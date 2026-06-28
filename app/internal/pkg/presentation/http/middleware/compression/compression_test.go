@@ -41,7 +41,7 @@ func TestCompress_responseGzip(t *testing.T) {
 
 	gr, err := gzip.NewReader(rec.Body)
 	require.NoError(t, err)
-	defer gr.Close()
+	defer func() { _ = gr.Close() }()
 	out, err := io.ReadAll(gr)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"ok":true}`, string(out))
