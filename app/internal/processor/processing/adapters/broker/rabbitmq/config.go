@@ -46,6 +46,18 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("broker queue is required")
 	}
 
+	if c.DeadLetterExchange == "" {
+		return fmt.Errorf("broker dead_letter_exchange is required")
+	}
+
+	if c.DeadLetterQueue == "" {
+		return fmt.Errorf("broker dead_letter_queue is required")
+	}
+
+	if c.DeadLetterRoutingKey == "" {
+		return fmt.Errorf("broker dead_letter_routing_key is required")
+	}
+
 	if c.RetryQueue == "" {
 		return fmt.Errorf("broker retry_queue is required")
 	}
