@@ -27,6 +27,7 @@ broker:
   dead_letter_exchange: avatars.dlx
   dead_letter_queue: avatar-processing.dlq
   dead_letter_routing_key: avatar-processing.dlq
+  reconnect_interval: "1s"
 
 worker:
   shutdown_timeout: "30s"
