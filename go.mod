@@ -3,6 +3,7 @@ module github.com/iPatrushevSergey/gophprofile
 go 1.26.3
 
 require (
+	github.com/KarpelesLab/gowebp v0.1.1
 	github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2 v2.0.3
 	github.com/avito-tech/go-transaction-manager/trm/v2 v2.0.3
 	github.com/disintegration/imaging v1.6.2
@@ -23,8 +24,10 @@ require (
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/minio v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
+	github.com/testcontainers/testcontainers-go/modules/rabbitmq v0.42.0
 	go.uber.org/mock v0.6.0
 	go.uber.org/zap v1.28.0
+	golang.org/x/image v0.24.0
 )
 
 require (
@@ -103,7 +106,6 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
-	golang.org/x/image v0.0.0-20191009234506-e7c1f5e7dbb8 // indirect
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
