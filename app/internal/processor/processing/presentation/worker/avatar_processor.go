@@ -102,7 +102,7 @@ func (w *AvatarProcessorWorker) Run(ctx context.Context) error {
 			success = false
 		}
 
-		if _, err := w.useCases.ConfirmAvatarEventUseCase().Execute(processCtx, dto.ConfirmAvatarEventInput{
+		if _, err := w.useCases.ConfirmAvatarEventUseCase().Execute(ctx, dto.ConfirmAvatarEventInput{
 			Delivery: msg.Delivery,
 			Success:  success,
 			Requeue:  requeue,
