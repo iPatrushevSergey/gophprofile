@@ -48,10 +48,12 @@ func TestGetAvatar_Execute(t *testing.T) {
 		assert.Equal(t, "image/png", out.MimeType)
 	})
 
-	t.Run("usesThumbnail", func(t *testing.T) {
+	t.Run("usesThumbnailFormat", func(t *testing.T) {
 		thumbAvatar := *avatar
-		thumbAvatar.ThumbnailS3Keys = map[vo.ThumbnailSize]string{
-			vo.ThumbnailSize100: "user-1/avatar-1/100x100",
+		thumbAvatar.ThumbnailS3Keys = map[vo.ThumbnailSize]map[vo.OutputFormat]string{
+			vo.ThumbnailSize100: {
+				vo.OutputFormatWebP: "user-1/avatar-1/100x100/webp",
+			},
 		}
 
 		ctrl := gomock.NewController(t)
@@ -59,15 +61,17 @@ func TestGetAvatar_Execute(t *testing.T) {
 		storage := portmocks.NewMockAvatarStorage(ctrl)
 
 		reader.EXPECT().FindByID(ctx, "avatar-1").Return(&thumbAvatar, nil)
-		storage.EXPECT().Get(ctx, "user-1/avatar-1/100x100").Return([]byte("thumb"), nil)
+		storage.EXPECT().Get(ctx, "user-1/avatar-1/100x100/webp").Return([]byte("thumb"), nil)
 
 		uc := NewGetAvatar(reader, storage)
 		out, err := uc.Execute(ctx, dto.GetAvatarInput{
 			AvatarID:      "avatar-1",
 			ThumbnailSize: vo.ThumbnailSize100,
+			OutputFormat:  vo.OutputFormatWebP,
 		})
 		require.NoError(t, err)
 		assert.Equal(t, []byte("thumb"), out.Content)
+		assert.Equal(t, "image/webp", out.MimeType)
 	})
 
 	t.Run("thumbnailNotReady", func(t *testing.T) {
