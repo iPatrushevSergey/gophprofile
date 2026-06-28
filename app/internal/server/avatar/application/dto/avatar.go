@@ -27,6 +27,7 @@ type UploadAvatarOutput struct {
 type GetAvatarInput struct {
 	AvatarID      string
 	ThumbnailSize vo.ThumbnailSize
+	OutputFormat  vo.OutputFormat
 }
 
 // GetAvatarOutput is application output for fetching avatar.
@@ -49,7 +50,9 @@ type AvatarMetadataOutput struct {
 	FileName         string
 	MimeType         string
 	SizeBytes        int64
-	ThumbnailS3Keys  map[vo.ThumbnailSize]string
+	Width            int
+	Height           int
+	ThumbnailS3Keys  map[vo.ThumbnailSize]map[vo.OutputFormat]string
 	UploadStatus     vo.UploadStatus
 	ProcessingStatus vo.ProcessingStatus
 	CreatedAt        time.Time
