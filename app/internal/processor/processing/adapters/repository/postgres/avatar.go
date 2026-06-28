@@ -47,7 +47,7 @@ func (r *AvatarRepository) FindByID(ctx context.Context, id string) (*entity.Ava
 
 		rows, err := q.Query(ctx, `
 			SELECT
-				id, user_id, file_name, mime_type, size_bytes, s3_key, thumbnail_s3_keys,
+				id, user_id, file_name, mime_type, size_bytes, width, height, s3_key, thumbnail_s3_keys,
 				upload_status, processing_status, created_at, updated_at, deleted_at
 			FROM avatars
 			WHERE id = $1 AND deleted_at IS NULL AND upload_status = $2`,
@@ -127,10 +127,12 @@ func (r *AvatarRepository) CompleteProcessing(ctx context.Context, in dto.Comple
 
 		tag, err := q.Exec(ctx, `
 			UPDATE avatars
-			SET thumbnail_s3_keys = $2, processing_status = $3, updated_at = $4
-			WHERE id = $1 AND deleted_at IS NULL AND upload_status = $5`,
+			SET thumbnail_s3_keys = $2, width = $3, height = $4, processing_status = $5, updated_at = $6
+			WHERE id = $1 AND deleted_at IS NULL AND upload_status = $7`,
 			avatarID,
 			thumbnailKeys,
+			in.Width,
+			in.Height,
 			string(vo.ProcessingStatusCompleted),
 			in.UpdatedAt,
 			string(vo.UploadStatusCompleted),
