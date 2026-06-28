@@ -30,6 +30,8 @@ func (uc *GetAvatarMetadata) Execute(ctx context.Context, in dto.GetAvatarMetada
 		FileName:         avatar.FileName,
 		MimeType:         avatar.MimeType,
 		SizeBytes:        avatar.SizeBytes,
+		Width:            avatar.Width,
+		Height:           avatar.Height,
 		ThumbnailS3Keys:  avatar.ThumbnailS3Keys,
 		UploadStatus:     avatar.UploadStatus,
 		ProcessingStatus: avatar.ProcessingStatus,
