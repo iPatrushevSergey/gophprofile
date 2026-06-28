@@ -13,11 +13,11 @@ func TestNewProcessingUseCases_wiresUseCases(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	uc := NewProcessingUseCases(ProcessingUseCasesParams{
-		AvatarRepo:    portmocks.NewMockAvatarRepo(ctrl),
-		AvatarStorage: portmocks.NewMockAvatarStorage(ctrl),
-		ImageResizer:  portmocks.NewMockImageResizer(ctrl),
-		EventConsumer: portmocks.NewMockEventConsumer(ctrl),
-		Clock:         portmocks.NewMockClock(ctrl),
+		AvatarRepo:     portmocks.NewMockAvatarRepo(ctrl),
+		AvatarStorage:  portmocks.NewMockAvatarStorage(ctrl),
+		ImageProcessor: portmocks.NewMockImageProcessor(ctrl),
+		EventConsumer:  portmocks.NewMockEventConsumer(ctrl),
+		Clock:          portmocks.NewMockClock(ctrl),
 	})
 
 	assert.NotNil(t, uc.SubscribeAvatarEvents)
