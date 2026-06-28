@@ -22,6 +22,7 @@ func RegisterAvatarRoutes(
 
 	public.GET("/avatars/:avatar_id", h.Get)
 	public.GET("/avatars/:avatar_id/metadata", h.GetMetadata)
+	public.GET("/users/:user_id/avatars", h.ListByUser)
 	protected.POST("/avatars", h.Upload)
 	protected.DELETE("/avatars/:avatar_id", h.Delete)
 }
