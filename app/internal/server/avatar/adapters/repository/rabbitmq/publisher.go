@@ -219,8 +219,8 @@ func (p *Publisher) ensurePublishSession() error {
 		return fmt.Errorf("rabbitmq channel: %w", err)
 	}
 
-	if err := ch.ExchangeDeclare(p.cfg.Exchange, exchangeType, true, false, false, false, nil); err != nil {
-		return fmt.Errorf("rabbitmq declare exchange: %w", err)
+	if err := ch.ExchangeDeclarePassive(p.cfg.Exchange, exchangeType, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("rabbitmq exchange %q: %w", p.cfg.Exchange, err)
 	}
 
 	if err := ch.Confirm(false); err != nil {
