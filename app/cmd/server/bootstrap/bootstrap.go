@@ -14,7 +14,6 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/apputil"
-	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/migrate"
 	avatarclock "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/clock"
 	avatargenerator "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/generator"
 	avatarminio "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/minio"
@@ -52,16 +51,10 @@ func Run() error {
 		"tls_configured", cfg.Server.TLSEnabled(),
 	)
 
-	// Apply migrations.
-	dsn := cfg.DB.Pool.URI
-	if dsn == "" {
+	// Initialize database pool.
+	if cfg.DB.Pool.URI == "" {
 		return fmt.Errorf("database: uri is required")
 	}
-	if err := migrate.PostgresUp(dsn, migrate.MigrationsGophprofileDir()); err != nil {
-		return fmt.Errorf("apply migrations: %w", err)
-	}
-
-	// Initialize database pool.
 	pool, err := postgres.NewPool(context.Background(), cfg.DB.Pool)
 	if err != nil {
 		return fmt.Errorf("database pool: %w", err)
