@@ -19,8 +19,11 @@ import (
 )
 
 const (
-	exchangeType           = "topic"
-	deadLetterExchangeType = "direct"
+	exchangeType             = "topic"
+	deadLetterExchangeType   = "direct"
+	retryExchangeType        = "direct"
+	retryCountHeader         = "x-retry-count"
+	originalRoutingKeyHeader = "x-original-routing-key"
 )
 
 var errBrokerNotConfigured = errors.New("broker is not configured")
@@ -33,10 +36,11 @@ type Consumer struct {
 	log  appport.Logger
 	conv converter.MessageConverter
 
-	mu     sync.Mutex
-	conn   *amqp091.Connection
-	ch     *amqp091.Channel
-	closed bool
+	mu              sync.Mutex
+	conn            *amqp091.Connection
+	ch              *amqp091.Channel
+	publishConfirms <-chan amqp091.Confirmation
+	closed          bool
 }
 
 // NewConsumer creates a RabbitMQ event consumer.
@@ -88,14 +92,15 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 			}
 
 			deliveries, err := c.ch.Consume(c.cfg.Queue, "", false, false, false, false, nil)
-			c.mu.Unlock()
 			if err != nil {
+				c.mu.Unlock()
 				c.log.Error("rabbitmq consume failed", "error", err)
 				if !wait(ctx, c.cfg.ReconnectInterval) {
 					return
 				}
 				continue
 			}
+			c.mu.Unlock()
 
 		deliveriesLoop:
 			for {
@@ -111,12 +116,24 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						break deliveriesLoop
 					}
 
+					attempt := 1
+					if count, ok := delivery.Headers[retryCountHeader].(int32); ok {
+						attempt = int(count) + 1
+					}
+
+					routingKey := delivery.RoutingKey
+					if routingKey == c.cfg.RetryReturnRoutingKey {
+						if original, ok := delivery.Headers[originalRoutingKeyHeader].(string); ok && original != "" {
+							routingKey = original
+						}
+					}
+
 					var (
 						msg dto.BrokerMessage
 						err error
 					)
 
-					switch vo.EventType(delivery.RoutingKey) {
+					switch vo.EventType(routingKey) {
 					case vo.EventAvatarUploaded:
 						var eventModel model.AvatarUploadedEvent
 						if err = easyjson.Unmarshal(delivery.Body, &eventModel); err != nil {
@@ -134,24 +151,28 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						deleted := c.conv.AvatarDeletedEventModelToAvatarDeletedEventDto(eventModel)
 						msg.Deleted = &deleted
 					default:
-						err = fmt.Errorf("rabbitmq: unknown routing key %q", delivery.RoutingKey)
+						err = fmt.Errorf("rabbitmq: unknown routing key %q", routingKey)
 					}
 
 					if err != nil {
 						c.log.Error("rabbitmq: skip invalid broker message",
 							"error", err,
-							"routing_key", delivery.RoutingKey,
+							"routing_key", routingKey,
 						)
 						if nackErr := delivery.Nack(false, false); nackErr != nil {
 							c.log.Error("rabbitmq: nack invalid broker message failed",
 								"error", nackErr,
-								"routing_key", delivery.RoutingKey,
+								"routing_key", routingKey,
 							)
 						}
 						continue
 					}
 
-					msg.Delivery = &messageDelivery{delivery: delivery}
+					msg.Delivery = &messageDelivery{
+						consumer: c,
+						delivery: delivery,
+						attempt:  attempt,
+					}
 
 					select {
 					case messages <- msg:
@@ -159,7 +180,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						if nackErr := delivery.Nack(false, true); nackErr != nil {
 							c.log.Error("rabbitmq: nack on shutdown failed",
 								"error", nackErr,
-								"routing_key", delivery.RoutingKey,
+								"routing_key", routingKey,
 							)
 						}
 						return
@@ -186,6 +207,7 @@ func (c *Consumer) Close() error {
 	if c.ch != nil {
 		_ = c.ch.Close()
 		c.ch = nil
+		c.publishConfirms = nil
 	}
 	if c.conn != nil {
 		_ = c.conn.Close()
@@ -197,13 +219,14 @@ func (c *Consumer) Close() error {
 
 // ensureConsumeSession opens or restores the RabbitMQ consume session. Caller must hold c.mu.
 func (c *Consumer) ensureConsumeSession() error {
-	if c.conn != nil && !c.conn.IsClosed() {
+	if c.conn != nil && !c.conn.IsClosed() && c.ch != nil && !c.ch.IsClosed() {
 		return nil
 	}
 
 	if c.ch != nil {
 		_ = c.ch.Close()
 		c.ch = nil
+		c.publishConfirms = nil
 	}
 	if c.conn != nil {
 		_ = c.conn.Close()
@@ -250,6 +273,10 @@ func (c *Consumer) ensureConsumeSession() error {
 		}
 	}
 
+	if err := ch.QueueBind(queue.Name, c.cfg.RetryReturnRoutingKey, c.cfg.RetryExchange, false, nil); err != nil {
+		return fmt.Errorf("rabbitmq bind queue for retry return: %w", err)
+	}
+
 	if err := ch.ExchangeDeclare(c.cfg.DeadLetterExchange, deadLetterExchangeType, true, false, false, false, nil); err != nil {
 		return fmt.Errorf("rabbitmq declare dead letter exchange: %w", err)
 	}
@@ -263,12 +290,31 @@ func (c *Consumer) ensureConsumeSession() error {
 		return fmt.Errorf("rabbitmq bind dead letter queue: %w", err)
 	}
 
+	if err := ch.ExchangeDeclare(c.cfg.RetryExchange, retryExchangeType, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("rabbitmq declare retry exchange: %w", err)
+	}
+
+	retryTTLMillis := int32(c.cfg.RetryTTL / time.Millisecond)
+
+	if _, err := ch.QueueDeclare(c.cfg.RetryQueue, true, false, false, false, amqp091.Table{
+		"x-message-ttl":             retryTTLMillis,
+		"x-dead-letter-exchange":    c.cfg.RetryExchange,
+		"x-dead-letter-routing-key": c.cfg.RetryReturnRoutingKey,
+	}); err != nil {
+		return fmt.Errorf("rabbitmq declare retry queue: %w", err)
+	}
+
 	if err := ch.Qos(1, 0, false); err != nil {
 		return fmt.Errorf("rabbitmq qos: %w", err)
 	}
 
+	if err := ch.Confirm(false); err != nil {
+		return fmt.Errorf("rabbitmq enable publisher confirms: %w", err)
+	}
+
 	c.conn = conn
 	c.ch = ch
+	c.publishConfirms = ch.NotifyPublish(make(chan amqp091.Confirmation, 1))
 	ready = true
 	return nil
 }
@@ -288,7 +334,9 @@ func wait(ctx context.Context, delay time.Duration) bool {
 
 // messageDelivery implements MessageDelivery interface.
 type messageDelivery struct {
+	consumer *Consumer
 	delivery amqp091.Delivery
+	attempt  int
 }
 
 // Ack acknowledges the delivery.
@@ -297,6 +345,68 @@ func (d *messageDelivery) Ack(_ context.Context) error {
 }
 
 // Nack rejects the delivery.
-func (d *messageDelivery) Nack(_ context.Context, requeue bool) error {
-	return d.delivery.Nack(false, requeue)
+func (d *messageDelivery) Nack(ctx context.Context, requeue bool) error {
+	if !requeue {
+		return d.delivery.Nack(false, false)
+	}
+
+	if d.attempt >= d.consumer.cfg.MaxRetries {
+		d.consumer.log.Warn("rabbitmq: max delivery attempts reached, sending to dlq",
+			"routing_key", d.delivery.RoutingKey,
+			"attempt", d.attempt,
+			"max_retries", d.consumer.cfg.MaxRetries,
+		)
+		return d.delivery.Nack(false, false)
+	}
+
+	headers := amqp091.Table{
+		retryCountHeader: int32(d.attempt),
+	}
+	routingKey := d.delivery.RoutingKey
+	if routingKey == d.consumer.cfg.RetryReturnRoutingKey {
+		if original, ok := d.delivery.Headers[originalRoutingKeyHeader].(string); ok && original != "" {
+			routingKey = original
+		}
+	}
+	if routingKey != "" {
+		headers[originalRoutingKeyHeader] = routingKey
+	}
+
+	d.consumer.mu.Lock()
+	defer d.consumer.mu.Unlock()
+
+	if err := d.consumer.ensureConsumeSession(); err != nil {
+		return fmt.Errorf("rabbitmq republish for retry: %w", err)
+	}
+
+	if err := d.consumer.ch.PublishWithContext(
+		ctx,
+		"",
+		d.consumer.cfg.RetryQueue,
+		false,
+		false,
+		amqp091.Publishing{
+			ContentType:  d.delivery.ContentType,
+			DeliveryMode: amqp091.Persistent,
+			Body:         d.delivery.Body,
+			Headers:      headers,
+		},
+	); err != nil {
+		return fmt.Errorf("rabbitmq republish for retry: %w", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case confirm := <-d.consumer.publishConfirms:
+			if !confirm.Ack {
+				return fmt.Errorf("rabbitmq republish for retry not acknowledged")
+			}
+			if err := d.delivery.Ack(false); err != nil {
+				return fmt.Errorf("rabbitmq ack after retry republish: %w", err)
+			}
+			return nil
+		}
+	}
 }
