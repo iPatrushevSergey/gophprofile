@@ -164,7 +164,7 @@ make docker-down
 # эквивалент: docker compose down
 ```
 
-Данные Postgres и MinIO сохраняются в docker volumes. Полная очистка:
+Данные Postgres, MinIO и RabbitMQ сохраняются в docker volumes. Полная очистка:
 
 ```bash
 docker compose down -v
@@ -222,7 +222,7 @@ docker compose ps
 # minio-init — exited (0)
 ```
 
-> RabbitMQ поднимается с топологией из `deploy/rabbitmq/definitions.json`.
+> RabbitMQ поднимается с топологией и пользователем из [`deploy/rabbitmq/definitions.json`](deploy/rabbitmq/definitions.json) (`management.load_definitions` в [`deploy/rabbitmq/rabbitmq.conf`](deploy/rabbitmq/rabbitmq.conf)). При импорте definitions env `RABBITMQ_DEFAULT_USER/PASS` **не создаёт** пользователя в брокере — они только подставляются в `GOPHPROFILE_BROKER_URL` для server/processor. Для Docker-сети не используйте `guest` (удалённые подключения запрещены); в `.env.example` — `gophprofile` / `gophprofile`.
 
 ### Шаг 3. Миграции PostgreSQL
 
@@ -250,7 +250,7 @@ export GOPHPROFILE_MINIO_ENDPOINT=127.0.0.1:9000
 export GOPHPROFILE_MINIO_ACCESS_KEY=minioadmin
 export GOPHPROFILE_MINIO_SECRET_KEY=minioadmin
 export GOPHPROFILE_MINIO_USE_SSL=false
-export GOPHPROFILE_BROKER_URL=amqp://guest:guest@localhost:5672/
+export GOPHPROFILE_BROKER_URL=amqp://gophprofile:gophprofile@localhost:5672/
 ```
 
 Server и processor читают `app/.env` или `.env` в корне при старте. Processor использует те же `GOPHPROFILE_DATABASE_URI`, `GOPHPROFILE_MINIO_*`, `GOPHPROFILE_BROKER_URL`.
@@ -353,7 +353,7 @@ Client → POST /avatars
         Processor: resize → MinIO (100x100, 300x300) → Postgres
 ```
 
-При ошибках processor использует retry-очередь с TTL и dead-letter queue. Параметры — [`app/configs/processor.yaml`](app/configs/processor.yaml), топология — [`deploy/rabbitmq/definitions.json`](deploy/rabbitmq/definitions.json).
+При ошибках processor использует retry-очередь с TTL и dead-letter queue. Параметры — [`app/configs/processor.yaml`](app/configs/processor.yaml), топология и пользователь брокера — [`deploy/rabbitmq/definitions.json`](deploy/rabbitmq/definitions.json) + [`deploy/rabbitmq/rabbitmq.conf`](deploy/rabbitmq/rabbitmq.conf).
 
 ---
 
@@ -374,7 +374,7 @@ export GOPHPROFILE_MINIO_ENDPOINT=localhost:9000
 export GOPHPROFILE_MINIO_ACCESS_KEY=minioadmin
 export GOPHPROFILE_MINIO_SECRET_KEY=minioadmin
 export GOPHPROFILE_MINIO_USE_SSL=false
-export GOPHPROFILE_BROKER_URL=amqp://guest:guest@localhost:5672/
+export GOPHPROFILE_BROKER_URL=amqp://gophprofile:gophprofile@localhost:5672/
 export GOPHPROFILE_SERVER_CERT_FILE=certs/server.crt
 export GOPHPROFILE_SERVER_KEY_FILE=certs/server.key
 ```
