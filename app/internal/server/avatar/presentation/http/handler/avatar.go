@@ -111,6 +111,11 @@ func (h *AvatarHandler) Get(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, presdto.ErrorResponse{Error: "bad input"})
 	}
 
+	format := vo.OutputFormat(c.QueryParam("format"))
+	if !format.Valid() {
+		return c.JSON(http.StatusBadRequest, presdto.ErrorResponse{Error: "bad input"})
+	}
+
 	ctx := c.Request().Context()
 
 	if ifNoneMatch := c.Request().Header.Get("If-None-Match"); ifNoneMatch != "" {
@@ -128,7 +133,8 @@ func (h *AvatarHandler) Get(c echo.Context) error {
 		}
 
 		if size != vo.ThumbnailOriginal {
-			if _, ok := meta.ThumbnailS3Keys[size]; !ok {
+			variants, ok := meta.ThumbnailS3Keys[size]
+			if !ok || len(variants) == 0 {
 				return c.JSON(http.StatusNotFound, presdto.ErrorResponse{Error: "Avatar not found"})
 			}
 		}
@@ -146,6 +152,7 @@ func (h *AvatarHandler) Get(c echo.Context) error {
 	out, err := h.useCases.GetUseCase().Execute(ctx, appdto.GetAvatarInput{
 		AvatarID:      avatarID,
 		ThumbnailSize: size,
+		OutputFormat:  format,
 	})
 	if err != nil {
 		switch err {
@@ -193,16 +200,75 @@ func (h *AvatarHandler) GetMetadata(c echo.Context) error {
 		})
 	}
 
+	var dimensions *presdto.ImageDimensions
+	if out.Width > 0 && out.Height > 0 {
+		dimensions = &presdto.ImageDimensions{
+			Width:  out.Width,
+			Height: out.Height,
+		}
+	}
+
 	return c.JSON(http.StatusOK, presdto.AvatarMetadataResponse{
 		ID:         out.ID,
 		UserID:     out.UserID,
 		FileName:   out.FileName,
 		MimeType:   out.MimeType,
 		SizeBytes:  out.SizeBytes,
+		Dimensions: dimensions,
 		Thumbnails: thumbnails,
 		CreatedAt:  out.CreatedAt,
 		UpdatedAt:  out.UpdatedAt,
 	})
+}
+
+// ListByUser handles listing avatars for a user.
+func (h *AvatarHandler) ListByUser(c echo.Context) error {
+	out, err := h.useCases.ListByUserUseCase().Execute(
+		c.Request().Context(),
+		appdto.ListUserAvatarsInput{UserID: c.Param("user_id")},
+	)
+	if err != nil {
+		switch err {
+		case application.ErrBadInput:
+			return c.JSON(http.StatusBadRequest, presdto.ErrorResponse{Error: "bad input"})
+		default:
+			h.log.Error("list user avatars failed", "error", err)
+			return c.NoContent(http.StatusInternalServerError)
+		}
+	}
+
+	items := make([]presdto.AvatarMetadataResponse, 0, len(out.Items))
+	for _, item := range out.Items {
+		thumbnails := make([]presdto.ThumbnailURL, 0, len(item.ThumbnailS3Keys))
+		for thumbSize := range item.ThumbnailS3Keys {
+			thumbnails = append(thumbnails, presdto.ThumbnailURL{
+				Size: string(thumbSize),
+				URL:  fmt.Sprintf("/api/v1/avatars/%s?size=%s", item.ID, thumbSize),
+			})
+		}
+
+		var dimensions *presdto.ImageDimensions
+		if item.Width > 0 && item.Height > 0 {
+			dimensions = &presdto.ImageDimensions{
+				Width:  item.Width,
+				Height: item.Height,
+			}
+		}
+
+		items = append(items, presdto.AvatarMetadataResponse{
+			ID:         item.ID,
+			UserID:     item.UserID,
+			FileName:   item.FileName,
+			MimeType:   item.MimeType,
+			SizeBytes:  item.SizeBytes,
+			Dimensions: dimensions,
+			Thumbnails: thumbnails,
+			CreatedAt:  item.CreatedAt,
+			UpdatedAt:  item.UpdatedAt,
+		})
+	}
+
+	return c.JSON(http.StatusOK, presdto.UserAvatarsResponse{Items: items})
 }
 
 // Delete handles avatar deletion.
