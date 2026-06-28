@@ -22,6 +22,8 @@ func (c *AvatarConverterImpl) AvatarEntityToAvatarModel(source entity.Avatar) (m
 	modelAvatar.FileName = source.FileName
 	modelAvatar.MimeType = source.MimeType
 	modelAvatar.SizeBytes = source.SizeBytes
+	modelAvatar.Width = converter.IntToIntPtr(source.Width)
+	modelAvatar.Height = converter.IntToIntPtr(source.Height)
 	modelAvatar.S3Key = source.S3Key
 	jsonRawMessage, err := converter.ThumbnailS3KeysToRawMessage(source.ThumbnailS3Keys)
 	if err != nil {
@@ -42,6 +44,8 @@ func (c *AvatarConverterImpl) AvatarModelToAvatarEntity(source model.Avatar) (en
 	entityAvatar.FileName = source.FileName
 	entityAvatar.MimeType = source.MimeType
 	entityAvatar.SizeBytes = source.SizeBytes
+	entityAvatar.Width = converter.IntPtrToInt(source.Width)
+	entityAvatar.Height = converter.IntPtrToInt(source.Height)
 	entityAvatar.S3Key = source.S3Key
 	mapVoThumbnailSizeString, err := converter.RawMessageToThumbnailS3Keys(source.ThumbnailS3Keys)
 	if err != nil {
