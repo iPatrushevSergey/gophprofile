@@ -23,5 +23,7 @@ type PurgeDeletedAvatarInput struct {
 type CompleteProcessingInput struct {
 	AvatarID        string
 	ThumbnailS3Keys map[vo.ThumbnailSize]string
+	Width           int
+	Height          int
 	UpdatedAt       time.Time
 }
