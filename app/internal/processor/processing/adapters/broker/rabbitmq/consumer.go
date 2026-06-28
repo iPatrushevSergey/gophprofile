@@ -261,53 +261,37 @@ func (c *Consumer) ensureConsumeSession() error {
 		return fmt.Errorf("rabbitmq channel: %w", err)
 	}
 
-	if err := ch.ExchangeDeclare(c.cfg.Exchange, exchangeType, true, false, false, false, nil); err != nil {
-		return fmt.Errorf("rabbitmq declare exchange: %w", err)
+	if err := ch.ExchangeDeclarePassive(c.cfg.Exchange, exchangeType, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("rabbitmq exchange %q: %w", c.cfg.Exchange, err)
 	}
 
-	queue, err := ch.QueueDeclare(c.cfg.Queue, true, false, false, false, amqp091.Table{
+	if err := ch.ExchangeDeclarePassive(c.cfg.DeadLetterExchange, deadLetterExchangeType, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("rabbitmq dead letter exchange %q: %w", c.cfg.DeadLetterExchange, err)
+	}
+
+	if err := ch.ExchangeDeclarePassive(c.cfg.RetryExchange, retryExchangeType, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("rabbitmq retry exchange %q: %w", c.cfg.RetryExchange, err)
+	}
+
+	if _, err := ch.QueueDeclarePassive(c.cfg.Queue, true, false, false, false, amqp091.Table{
 		"x-dead-letter-exchange":    c.cfg.DeadLetterExchange,
 		"x-dead-letter-routing-key": c.cfg.DeadLetterRoutingKey,
-	})
-	if err != nil {
-		return fmt.Errorf("rabbitmq declare queue: %w", err)
+	}); err != nil {
+		return fmt.Errorf("rabbitmq queue %q: %w", c.cfg.Queue, err)
 	}
 
-	for _, routingKey := range []vo.EventType{vo.EventAvatarUploaded, vo.EventAvatarDeleted} {
-		if err := ch.QueueBind(queue.Name, string(routingKey), c.cfg.Exchange, false, nil); err != nil {
-			return fmt.Errorf("rabbitmq bind queue: %w", err)
-		}
-	}
-
-	if err := ch.QueueBind(queue.Name, c.cfg.RetryReturnRoutingKey, c.cfg.RetryExchange, false, nil); err != nil {
-		return fmt.Errorf("rabbitmq bind queue for retry return: %w", err)
-	}
-
-	if err := ch.ExchangeDeclare(c.cfg.DeadLetterExchange, deadLetterExchangeType, true, false, false, false, nil); err != nil {
-		return fmt.Errorf("rabbitmq declare dead letter exchange: %w", err)
-	}
-
-	deadLetterQueue, err := ch.QueueDeclare(c.cfg.DeadLetterQueue, true, false, false, false, nil)
-	if err != nil {
-		return fmt.Errorf("rabbitmq declare dead letter queue: %w", err)
-	}
-
-	if err := ch.QueueBind(deadLetterQueue.Name, c.cfg.DeadLetterRoutingKey, c.cfg.DeadLetterExchange, false, nil); err != nil {
-		return fmt.Errorf("rabbitmq bind dead letter queue: %w", err)
-	}
-
-	if err := ch.ExchangeDeclare(c.cfg.RetryExchange, retryExchangeType, true, false, false, false, nil); err != nil {
-		return fmt.Errorf("rabbitmq declare retry exchange: %w", err)
+	if _, err := ch.QueueDeclarePassive(c.cfg.DeadLetterQueue, true, false, false, false, nil); err != nil {
+		return fmt.Errorf("rabbitmq dead letter queue %q: %w", c.cfg.DeadLetterQueue, err)
 	}
 
 	retryTTLMillis := int32(c.cfg.RetryTTL / time.Millisecond)
 
-	if _, err := ch.QueueDeclare(c.cfg.RetryQueue, true, false, false, false, amqp091.Table{
+	if _, err := ch.QueueDeclarePassive(c.cfg.RetryQueue, true, false, false, false, amqp091.Table{
 		"x-message-ttl":             retryTTLMillis,
 		"x-dead-letter-exchange":    c.cfg.RetryExchange,
 		"x-dead-letter-routing-key": c.cfg.RetryReturnRoutingKey,
 	}); err != nil {
-		return fmt.Errorf("rabbitmq declare retry queue: %w", err)
+		return fmt.Errorf("rabbitmq retry queue %q: %w", c.cfg.RetryQueue, err)
 	}
 
 	if err := ch.Qos(1, 0, false); err != nil {
