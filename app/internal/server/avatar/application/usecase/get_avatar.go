@@ -6,7 +6,6 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
-	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/vo"
 )
 
 // GetAvatar returns an avatar by id and requested size.
@@ -27,24 +26,15 @@ func NewGetAvatar(
 }
 
 // Execute returns an avatar by id and requested size.
-
 func (uc *GetAvatar) Execute(ctx context.Context, in dto.GetAvatarInput) (dto.GetAvatarOutput, error) {
-	size := in.ThumbnailSize
 	avatar, err := uc.avatarReader.FindByID(ctx, in.AvatarID)
 	if err != nil {
 		return dto.GetAvatarOutput{}, err
 	}
 
-	var key string
-	switch size {
-	case vo.ThumbnailOriginal:
-		key = avatar.S3Key
-	case vo.ThumbnailSize100, vo.ThumbnailSize300:
-		var ok bool
-		key, ok = avatar.ThumbnailS3Keys[size]
-		if !ok {
-			return dto.GetAvatarOutput{}, application.ErrNotFound
-		}
+	key, mimeType, ok := avatar.LookupVariantKey(in.ThumbnailSize, in.OutputFormat)
+	if !ok {
+		return dto.GetAvatarOutput{}, application.ErrNotFound
 	}
 
 	content, err := uc.avatarStorage.Get(ctx, key)
@@ -55,7 +45,7 @@ func (uc *GetAvatar) Execute(ctx context.Context, in dto.GetAvatarInput) (dto.Ge
 	return dto.GetAvatarOutput{
 		AvatarID:  avatar.ID,
 		Content:   content,
-		MimeType:  avatar.MimeType,
+		MimeType:  mimeType,
 		UpdatedAt: avatar.UpdatedAt,
 	}, nil
 }
