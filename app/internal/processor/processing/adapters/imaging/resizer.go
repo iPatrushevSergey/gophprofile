@@ -23,6 +23,15 @@ func NewResizer() *Resizer {
 	return &Resizer{}
 }
 
+// Dimensions returns width and height of the encoded image.
+func (r *Resizer) Dimensions(data []byte) (int, int, error) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return 0, 0, fmt.Errorf("decode image config: %w", err)
+	}
+	return cfg.Width, cfg.Height, nil
+}
+
 // Resize resizes image data to target dimensions.
 func (r *Resizer) Resize(_ context.Context, data []byte, width, height int) ([]byte, error) {
 	if width <= 0 || height <= 0 {
