@@ -35,15 +35,17 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 	p.validate()
 
 	avatarUseCases := avatarappusecase.NewAvatarUseCases(avatarappusecase.AvatarUseCasesParams{
-		AvatarRepo:           p.avatarRepo,
-		AvatarStorage:        p.avatarStorage,
-		EventPublisher:       p.eventPublisher,
-		OutboxRepo:           p.outboxRepo,
-		IDGenerator:          p.idGenerator,
-		Transactor:           p.transactor,
-		Clock:                p.clock,
-		OutboxBatchSize:      p.outboxBatchSize,
-		UploadReservationTTL: p.uploadReservationTTL,
+		AvatarRepo:              p.avatarRepo,
+		AvatarStorage:           p.avatarStorage,
+		EventPublisher:          p.eventPublisher,
+		OutboxRepo:              p.outboxRepo,
+		IDGenerator:             p.idGenerator,
+		Transactor:              p.transactor,
+		Clock:                   p.clock,
+		Logger:                  p.logger,
+		OutboxBatchSize:         p.outboxBatchSize,
+		OutboxPublishingTimeout: p.outboxPublishingTimeout,
+		UploadReservationTTL:    p.uploadReservationTTL,
 	})
 
 	return &globalUseCases{
@@ -94,15 +96,17 @@ func (f *globalUseCases) PublishPendingOutboxEventsUseCase() appport.UseCase[str
 
 // globalUseCasesParams holds dependencies required to build global use cases.
 type globalUseCasesParams struct {
-	avatarRepo           appport.AvatarRepo
-	outboxRepo           appport.OutboxRepo
-	avatarStorage        appport.AvatarStorage
-	eventPublisher       appport.EventPublisher
-	idGenerator          appport.IDGenerator
-	transactor           appport.Transactor
-	clock                appport.Clock
-	outboxBatchSize      int
-	uploadReservationTTL time.Duration
+	avatarRepo              appport.AvatarRepo
+	outboxRepo              appport.OutboxRepo
+	avatarStorage           appport.AvatarStorage
+	eventPublisher          appport.EventPublisher
+	idGenerator             appport.IDGenerator
+	transactor              appport.Transactor
+	clock                   appport.Clock
+	logger                  appport.Logger
+	outboxBatchSize         int
+	outboxPublishingTimeout time.Duration
+	uploadReservationTTL    time.Duration
 }
 
 // validate validates the global use cases parameters.
@@ -127,6 +131,9 @@ func (p globalUseCasesParams) validate() {
 	}
 	if p.clock == nil {
 		panic("NewGlobalUseCases: WithClock is required")
+	}
+	if p.logger == nil {
+		panic("NewGlobalUseCases: WithLogger is required")
 	}
 }
 
@@ -165,9 +172,19 @@ func WithClock(c appport.Clock) apputil.Option[globalUseCasesParams] {
 	return func(p *globalUseCasesParams) { p.clock = c }
 }
 
+// WithLogger sets the logger.
+func WithLogger(l appport.Logger) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.logger = l }
+}
+
 // WithOutboxBatchSize sets the outbox publish batch size.
 func WithOutboxBatchSize(size int) apputil.Option[globalUseCasesParams] {
 	return func(p *globalUseCasesParams) { p.outboxBatchSize = size }
+}
+
+// WithOutboxPublishingTimeout sets how long a publishing row may live before recovery.
+func WithOutboxPublishingTimeout(timeout time.Duration) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.outboxPublishingTimeout = timeout }
 }
 
 // WithUploadReservationTTL sets the upload reservation TTL.
