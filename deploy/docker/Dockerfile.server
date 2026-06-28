@@ -11,13 +11,18 @@ RUN CGO_ENABLED=0 go build -tags=go_json -o /out/server ./app/cmd/server
 
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates \
+    && addgroup -S gophprofile \
+    && adduser -S gophprofile -G gophprofile -h /app
 
 WORKDIR /app
 
 COPY --from=builder /out/server /app/server
-COPY --from=builder /src/migrations /src/migrations
 COPY app/configs/server.yaml /app/configs/server.yaml
+
+RUN chown -R gophprofile:gophprofile /app
+
+USER gophprofile
 
 EXPOSE 8080
 
