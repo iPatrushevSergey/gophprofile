@@ -71,7 +71,7 @@ func Run() error {
 	useCaseOpts := []apputil.Option[globalUseCasesParams]{
 		WithAvatarRepo(processingpostgres.NewAvatarRepository(transactor)),
 		WithClock(processingclock.NewRealClock()),
-		WithImageResizer(imaging.NewResizer()),
+		WithImageProcessor(imaging.NewProcessor()),
 	}
 
 	// Initialize MinIO avatar storage.
