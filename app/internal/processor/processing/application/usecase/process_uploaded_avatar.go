@@ -11,15 +11,13 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/domain/vo"
 )
 
-const thumbnailContentType = "image/jpeg"
-
 // ProcessUploadedAvatar creates thumbnails and updates processing status.
 type ProcessUploadedAvatar struct {
-	avatarReader  appport.AvatarReader
-	avatarWriter  appport.AvatarWriter
-	avatarStorage appport.AvatarStorage
-	imageResizer  appport.ImageResizer
-	clock         appport.Clock
+	avatarReader    appport.AvatarReader
+	avatarWriter    appport.AvatarWriter
+	avatarStorage   appport.AvatarStorage
+	imageProcessor  appport.ImageProcessor
+	clock           appport.Clock
 }
 
 // NewProcessUploadedAvatar returns the process uploaded avatar use case.
@@ -27,15 +25,15 @@ func NewProcessUploadedAvatar(
 	avatarReader appport.AvatarReader,
 	avatarWriter appport.AvatarWriter,
 	avatarStorage appport.AvatarStorage,
-	imageResizer appport.ImageResizer,
+	imageProcessor appport.ImageProcessor,
 	clock appport.Clock,
 ) appport.UseCase[dto.ProcessUploadedAvatarInput, struct{}] {
 	return &ProcessUploadedAvatar{
-		avatarReader:  avatarReader,
-		avatarWriter:  avatarWriter,
-		avatarStorage: avatarStorage,
-		imageResizer:  imageResizer,
-		clock:         clock,
+		avatarReader:   avatarReader,
+		avatarWriter:   avatarWriter,
+		avatarStorage:  avatarStorage,
+		imageProcessor: imageProcessor,
+		clock:          clock,
 	}
 }
 
@@ -70,7 +68,7 @@ func (uc *ProcessUploadedAvatar) Execute(ctx context.Context, in dto.ProcessUplo
 		return fail(err)
 	}
 
-	width, height, err := uc.imageResizer.Dimensions(original)
+	width, height, err := uc.imageProcessor.Dimensions(original)
 	if err != nil {
 		return fail(err)
 	}
@@ -82,21 +80,32 @@ func (uc *ProcessUploadedAvatar) Execute(ctx context.Context, in dto.ProcessUplo
 	}{
 		{vo.ThumbnailSize100, 100, 100},
 		{vo.ThumbnailSize300, 300, 300},
+		{vo.ThumbnailOriginal, 0, 0},
 	}
+	formats := []vo.OutputFormat{vo.OutputFormatJPEG, vo.OutputFormatPNG, vo.OutputFormatWebP}
 
-	thumbnailKeys := make(map[vo.ThumbnailSize]string, len(sizes))
+	thumbnailKeys := make(map[vo.ThumbnailSize]map[vo.OutputFormat]string, len(sizes))
 
 	for _, item := range sizes {
-		resized, err := uc.imageResizer.Resize(ctx, original, item.width, item.height)
+		thumb, err := uc.imageProcessor.Resize(original, item.width, item.height)
 		if err != nil {
 			return fail(err)
 		}
 
-		key := entity.ThumbnailObjectKey(in.UserID, in.AvatarID, item.size)
-		if err := uc.avatarStorage.Put(ctx, key, resized, thumbnailContentType); err != nil {
-			return fail(err)
+		formatKeys := make(map[vo.OutputFormat]string, len(formats))
+		for _, format := range formats {
+			content, err := uc.imageProcessor.Encode(thumb, format)
+			if err != nil {
+				return fail(err)
+			}
+
+			key := entity.ThumbnailObjectKey(in.UserID, in.AvatarID, item.size, format)
+			if err := uc.avatarStorage.Put(ctx, key, content, format.MimeType()); err != nil {
+				return fail(err)
+			}
+			formatKeys[format] = key
 		}
-		thumbnailKeys[item.size] = key
+		thumbnailKeys[item.size] = formatKeys
 	}
 
 	if err := uc.avatarWriter.CompleteProcessing(ctx, dto.CompleteProcessingInput{
