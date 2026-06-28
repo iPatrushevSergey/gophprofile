@@ -159,7 +159,10 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 							"error", err,
 							"routing_key", routingKey,
 						)
-						if nackErr := delivery.Nack(false, false); nackErr != nil {
+						c.mu.Lock()
+						nackErr := delivery.Nack(false, false)
+						c.mu.Unlock()
+						if nackErr != nil {
 							c.log.Error("rabbitmq: nack invalid broker message failed",
 								"error", nackErr,
 								"routing_key", routingKey,
@@ -177,7 +180,10 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 					select {
 					case messages <- msg:
 					case <-ctx.Done():
-						if nackErr := delivery.Nack(false, true); nackErr != nil {
+						c.mu.Lock()
+						nackErr := delivery.Nack(false, true)
+						c.mu.Unlock()
+						if nackErr != nil {
 							c.log.Error("rabbitmq: nack on shutdown failed",
 								"error", nackErr,
 								"routing_key", routingKey,
@@ -341,11 +347,17 @@ type messageDelivery struct {
 
 // Ack acknowledges the delivery.
 func (d *messageDelivery) Ack(_ context.Context) error {
+	d.consumer.mu.Lock()
+	defer d.consumer.mu.Unlock()
+
 	return d.delivery.Ack(false)
 }
 
 // Nack rejects the delivery.
 func (d *messageDelivery) Nack(ctx context.Context, requeue bool) error {
+	d.consumer.mu.Lock()
+	defer d.consumer.mu.Unlock()
+
 	if !requeue {
 		return d.delivery.Nack(false, false)
 	}
@@ -371,9 +383,6 @@ func (d *messageDelivery) Nack(ctx context.Context, requeue bool) error {
 	if routingKey != "" {
 		headers[originalRoutingKeyHeader] = routingKey
 	}
-
-	d.consumer.mu.Lock()
-	defer d.consumer.mu.Unlock()
 
 	if err := d.consumer.ensureConsumeSession(); err != nil {
 		return fmt.Errorf("rabbitmq republish for retry: %w", err)
