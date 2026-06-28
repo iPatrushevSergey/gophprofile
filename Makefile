@@ -3,7 +3,7 @@
 	certs run-server run-processor run-server-prod run-processor-prod \
 	docker-up docker-down docker-ps docker-migrate \
 	test test-unit test-contract test-component test-integration test-e2e test-all \
-	cover cover-unit cover-integration cover-unit-target migrate generate-mocks \
+	cover cover-unit cover-integration migrate generate-mocks \
 	generate-easyjson generate-goverter
 
 APP_DIR := app
@@ -96,7 +96,7 @@ test-integration:
 test-e2e:
 	go test $(BUILD_FLAGS) -tags=e2e -p 1 -timeout 15m ./app/tests/e2e/...
 
-test-all: test-unit test-contract test-component test-integration test-e2e
+test-all: test-unit test-contract test-integration test-component test-e2e
 
 cover:
 	go test $(BUILD_FLAGS) -tags=integration -p 1 -coverpkg=./app/... ./app/... -coverprofile=coverage.out && go tool cover -func=coverage.out
