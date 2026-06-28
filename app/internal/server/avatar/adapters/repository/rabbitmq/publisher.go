@@ -184,7 +184,7 @@ func (p *Publisher) Ping(ctx context.Context) error {
 
 // ensurePublishSession opens or restores the RabbitMQ publish session.
 func (p *Publisher) ensurePublishSession() error {
-	if p.conn != nil && !p.conn.IsClosed() {
+	if p.conn != nil && !p.conn.IsClosed() && p.ch != nil && !p.ch.IsClosed() {
 		return nil
 	}
 
