@@ -7,11 +7,11 @@ import (
 
 // ProcessingUseCasesParams contains dependencies required to build processing use cases.
 type ProcessingUseCasesParams struct {
-	AvatarRepo    appport.AvatarRepo
-	AvatarStorage appport.AvatarStorage
-	ImageResizer  appport.ImageResizer
-	EventConsumer appport.EventConsumer
-	Clock         appport.Clock
+	AvatarRepo     appport.AvatarRepo
+	AvatarStorage  appport.AvatarStorage
+	ImageProcessor appport.ImageProcessor
+	EventConsumer  appport.EventConsumer
+	Clock          appport.Clock
 }
 
 // ProcessingUseCases holds processing module use cases exposed to the composition root.
@@ -31,7 +31,7 @@ func NewProcessingUseCases(p ProcessingUseCasesParams) *ProcessingUseCases {
 			p.AvatarRepo,
 			p.AvatarRepo,
 			p.AvatarStorage,
-			p.ImageResizer,
+			p.ImageProcessor,
 			p.Clock,
 		),
 		PurgeDeleted: NewPurgeDeletedAvatar(p.AvatarStorage),
