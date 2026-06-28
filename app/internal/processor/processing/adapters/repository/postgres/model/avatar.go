@@ -14,6 +14,8 @@ type Avatar struct {
 	FileName         string
 	MimeType         string
 	SizeBytes        int64
+	Width            *int
+	Height           *int
 	S3Key            string
 	ThumbnailS3Keys  json.RawMessage
 	UploadStatus     string
