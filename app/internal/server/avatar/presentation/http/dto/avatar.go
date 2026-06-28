@@ -22,14 +22,26 @@ type UploadAvatarResponse struct {
 
 // AvatarMetadataResponse is a presentation response with avatar metadata.
 type AvatarMetadataResponse struct {
-	ID         string         `json:"id"`
-	UserID     string         `json:"user_id"`
-	FileName   string         `json:"file_name"`
-	MimeType   string         `json:"mime_type"`
-	SizeBytes  int64          `json:"size_bytes"`
-	Thumbnails []ThumbnailURL `json:"thumbnails"`
-	CreatedAt  time.Time      `json:"created_at"`
-	UpdatedAt  time.Time      `json:"updated_at"`
+	ID         string           `json:"id"`
+	UserID     string           `json:"user_id"`
+	FileName   string           `json:"file_name"`
+	MimeType   string           `json:"mime_type"`
+	SizeBytes  int64            `json:"size_bytes"`
+	Dimensions *ImageDimensions `json:"dimensions,omitempty"`
+	Thumbnails []ThumbnailURL   `json:"thumbnails"`
+	CreatedAt  time.Time        `json:"created_at"`
+	UpdatedAt  time.Time        `json:"updated_at"`
+}
+
+// ImageDimensions describes original image size in pixels.
+type ImageDimensions struct {
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
+// UserAvatarsResponse is a presentation response with user avatar list.
+type UserAvatarsResponse struct {
+	Items []AvatarMetadataResponse `json:"items"`
 }
 
 // ThumbnailURL describes one thumbnail variant URL.
