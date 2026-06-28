@@ -31,7 +31,7 @@ func TestPublishPendingOutboxEvents_Execute(t *testing.T) {
 			S3Key:    "user-1/avatar-1/original",
 		}
 
-		clock.EXPECT().Now().Return(now)
+		clock.EXPECT().Now().Return(now).AnyTimes()
 		writer.EXPECT().ReleaseStalePublishing(ctx, now.Add(-publishingTimeout)).Return(nil)
 		reader.EXPECT().MarkPublishing(ctx, 10, now).Return([]dto.OutboxEvent{
 			{
