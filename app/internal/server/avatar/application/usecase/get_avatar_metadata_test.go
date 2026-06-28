@@ -28,6 +28,9 @@ func TestGetAvatarMetadata_Execute(t *testing.T) {
 		vo.UploadStatusCompleted,
 		now,
 	)
+	avatar.Width = 1920
+	avatar.Height = 1080
+	avatar.ProcessingStatus = vo.ProcessingStatusCompleted
 
 	t.Run("success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -38,6 +41,8 @@ func TestGetAvatarMetadata_Execute(t *testing.T) {
 		out, err := uc.Execute(ctx, dto.GetAvatarMetadataInput{AvatarID: "avatar-1"})
 		require.NoError(t, err)
 		assert.Equal(t, "avatar-1", out.ID)
-		assert.Equal(t, vo.ProcessingStatusPending, out.ProcessingStatus)
+		assert.Equal(t, 1920, out.Width)
+		assert.Equal(t, 1080, out.Height)
+		assert.Equal(t, vo.ProcessingStatusCompleted, out.ProcessingStatus)
 	})
 }
