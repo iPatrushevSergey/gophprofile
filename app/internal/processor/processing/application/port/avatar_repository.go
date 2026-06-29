@@ -16,6 +16,7 @@ type AvatarReader interface {
 
 // AvatarWriter provides write access to avatar processing state.
 type AvatarWriter interface {
+	StartProcessing(ctx context.Context, id string, updatedAt time.Time) error
 	UpdateProcessingStatus(ctx context.Context, id string, status vo.ProcessingStatus, updatedAt time.Time) error
 	CompleteProcessing(ctx context.Context, in dto.CompleteProcessingInput) error
 }
