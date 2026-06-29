@@ -13,23 +13,20 @@ import (
 
 // ProcessUploadedAvatar creates thumbnails and updates processing status.
 type ProcessUploadedAvatar struct {
-	avatarReader    appport.AvatarReader
-	avatarWriter    appport.AvatarWriter
-	avatarStorage   appport.AvatarStorage
-	imageProcessor  appport.ImageProcessor
-	clock           appport.Clock
+	avatarWriter   appport.AvatarWriter
+	avatarStorage  appport.AvatarStorage
+	imageProcessor appport.ImageProcessor
+	clock          appport.Clock
 }
 
 // NewProcessUploadedAvatar returns the process uploaded avatar use case.
 func NewProcessUploadedAvatar(
-	avatarReader appport.AvatarReader,
 	avatarWriter appport.AvatarWriter,
 	avatarStorage appport.AvatarStorage,
 	imageProcessor appport.ImageProcessor,
 	clock appport.Clock,
 ) appport.UseCase[dto.ProcessUploadedAvatarInput, struct{}] {
 	return &ProcessUploadedAvatar{
-		avatarReader:   avatarReader,
 		avatarWriter:   avatarWriter,
 		avatarStorage:  avatarStorage,
 		imageProcessor: imageProcessor,
@@ -43,16 +40,7 @@ func (uc *ProcessUploadedAvatar) Execute(ctx context.Context, in dto.ProcessUplo
 		return struct{}{}, application.ErrBadInput
 	}
 
-	avatar, err := uc.avatarReader.FindByID(ctx, in.AvatarID)
-	if err != nil {
-		return struct{}{}, err
-	}
-
-	if avatar.ProcessingStatus == vo.ProcessingStatusCompleted {
-		return struct{}{}, application.ErrAlreadyProcessed
-	}
-
-	if err := uc.avatarWriter.UpdateProcessingStatus(ctx, in.AvatarID, vo.ProcessingStatusProcessing, uc.clock.Now()); err != nil {
+	if err := uc.avatarWriter.StartProcessing(ctx, in.AvatarID, uc.clock.Now()); err != nil {
 		return struct{}{}, err
 	}
 
