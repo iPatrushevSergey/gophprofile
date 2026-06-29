@@ -29,7 +29,6 @@ func NewProcessingUseCases(p ProcessingUseCasesParams) *ProcessingUseCases {
 		ConfirmAvatarEvent:    NewConfirmAvatarEvent(),
 		ProcessUploaded: NewProcessUploadedAvatar(
 			p.AvatarRepo,
-			p.AvatarRepo,
 			p.AvatarStorage,
 			p.ImageProcessor,
 			p.Clock,
