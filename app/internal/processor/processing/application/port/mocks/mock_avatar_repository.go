@@ -97,6 +97,20 @@ func (mr *MockAvatarWriterMockRecorder) CompleteProcessing(ctx, in any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompleteProcessing", reflect.TypeOf((*MockAvatarWriter)(nil).CompleteProcessing), ctx, in)
 }
 
+// StartProcessing mocks base method.
+func (m *MockAvatarWriter) StartProcessing(ctx context.Context, id string, updatedAt time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartProcessing", ctx, id, updatedAt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StartProcessing indicates an expected call of StartProcessing.
+func (mr *MockAvatarWriterMockRecorder) StartProcessing(ctx, id, updatedAt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartProcessing", reflect.TypeOf((*MockAvatarWriter)(nil).StartProcessing), ctx, id, updatedAt)
+}
+
 // UpdateProcessingStatus mocks base method.
 func (m *MockAvatarWriter) UpdateProcessingStatus(ctx context.Context, id string, status vo.ProcessingStatus, updatedAt time.Time) error {
 	m.ctrl.T.Helper()
@@ -162,6 +176,20 @@ func (m *MockAvatarRepo) FindByID(ctx context.Context, id string) (*entity.Avata
 func (mr *MockAvatarRepoMockRecorder) FindByID(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByID", reflect.TypeOf((*MockAvatarRepo)(nil).FindByID), ctx, id)
+}
+
+// StartProcessing mocks base method.
+func (m *MockAvatarRepo) StartProcessing(ctx context.Context, id string, updatedAt time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartProcessing", ctx, id, updatedAt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StartProcessing indicates an expected call of StartProcessing.
+func (mr *MockAvatarRepoMockRecorder) StartProcessing(ctx, id, updatedAt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartProcessing", reflect.TypeOf((*MockAvatarRepo)(nil).StartProcessing), ctx, id, updatedAt)
 }
 
 // UpdateProcessingStatus mocks base method.
