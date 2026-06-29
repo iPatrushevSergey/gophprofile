@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/apputil"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	appdto "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
 	avatarappusecase "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/usecase"
@@ -110,7 +111,7 @@ type globalUseCasesParams struct {
 	idGenerator             appport.IDGenerator
 	transactor              appport.Transactor
 	clock                   appport.Clock
-	logger                  appport.Logger
+	logger                  pkgport.Logger
 	outboxBatchSize         int
 	outboxPublishingTimeout time.Duration
 	uploadReservationTTL    time.Duration
@@ -180,7 +181,7 @@ func WithClock(c appport.Clock) apputil.Option[globalUseCasesParams] {
 }
 
 // WithLogger sets the logger.
-func WithLogger(l appport.Logger) apputil.Option[globalUseCasesParams] {
+func WithLogger(l pkgport.Logger) apputil.Option[globalUseCasesParams] {
 	return func(p *globalUseCasesParams) { p.logger = l }
 }
 

@@ -8,10 +8,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	authmw "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/auth"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application"
 	appdto "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
-	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/vo"
 	presdto "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/http/dto"
 	presport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/port"
@@ -23,11 +23,11 @@ const maxAvatarSize = 10 << 20
 // AvatarHandler serves avatar HTTP endpoints.
 type AvatarHandler struct {
 	useCases presport.AvatarUseCases
-	log      appport.Logger
+	log      pkgport.Logger
 }
 
 // NewAvatarHandler creates an avatar HTTP handler.
-func NewAvatarHandler(useCases presport.AvatarUseCases, log appport.Logger) *AvatarHandler {
+func NewAvatarHandler(useCases presport.AvatarUseCases, log pkgport.Logger) *AvatarHandler {
 	return &AvatarHandler{useCases: useCases, log: log}
 }
 

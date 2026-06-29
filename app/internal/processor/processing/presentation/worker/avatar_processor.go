@@ -6,22 +6,22 @@ import (
 	"errors"
 	"fmt"
 
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/dto"
-	appport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 	presport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/presentation/port"
 )
 
 // AvatarProcessorWorker consumes broker events and runs processing use cases.
 type AvatarProcessorWorker struct {
 	useCases presport.ProcessingUseCases
-	log      appport.Logger
+	log      pkgport.Logger
 }
 
 // NewAvatarProcessorWorker creates avatar processor worker.
 func NewAvatarProcessorWorker(
 	useCases presport.ProcessingUseCases,
-	log appport.Logger,
+	log pkgport.Logger,
 ) *AvatarProcessorWorker {
 	return &AvatarProcessorWorker{useCases: useCases, log: log}
 }

@@ -3,6 +3,7 @@ package usecase
 import (
 	"time"
 
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
 )
@@ -16,7 +17,7 @@ type AvatarUseCasesParams struct {
 	IDGenerator             appport.IDGenerator
 	Transactor              appport.Transactor
 	Clock                   appport.Clock
-	Logger                  appport.Logger
+	Logger                  pkgport.Logger
 	OutboxBatchSize         int
 	OutboxPublishingTimeout time.Duration
 	UploadReservationTTL    time.Duration

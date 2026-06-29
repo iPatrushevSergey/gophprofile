@@ -12,13 +12,13 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/apputil"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/config"
 	processingbroker "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq"
 	processingclock "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/clock"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/imaging"
 	processingminio "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/repository/minio"
 	processingpostgres "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/repository/postgres"
-	appport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 )
 
 // Run loads configuration, wires dependencies and runs the application.
@@ -33,7 +33,7 @@ func Run() error {
 	}
 
 	// Initialize logger.
-	var _ appport.Logger = (*logger.ZapLogger)(nil)
+	var _ pkgport.Logger = (*logger.ZapLogger)(nil)
 	log, err := logger.NewZapLogger(cfg.Logger)
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)

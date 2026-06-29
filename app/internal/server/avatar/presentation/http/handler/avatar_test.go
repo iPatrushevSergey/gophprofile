@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	pkgportmocks "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port/mocks"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application"
 	appdto "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
-	portmocks "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port/mocks"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/domain/vo"
 	presdto "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/http/dto"
 )
@@ -22,7 +22,7 @@ import (
 func newTestAvatarHandler(t *testing.T, uc stubAvatarUseCases) *AvatarHandler {
 	t.Helper()
 	ctrl := gomock.NewController(t)
-	log := portmocks.NewMockLogger(ctrl)
+	log := pkgportmocks.NewMockLogger(ctrl)
 	log.EXPECT().Error(gomock.Any(), gomock.Any()).AnyTimes()
 	return NewAvatarHandler(uc, log)
 }

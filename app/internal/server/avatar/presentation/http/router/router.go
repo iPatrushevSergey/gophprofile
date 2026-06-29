@@ -4,7 +4,7 @@ package router
 import (
 	"github.com/labstack/echo/v4"
 
-	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/http/handler"
 	presport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/port"
 )
@@ -14,7 +14,7 @@ func RegisterAvatarRoutes(
 	r *echo.Echo,
 	public, protected *echo.Group,
 	useCases presport.AvatarUseCases,
-	log appport.Logger,
+	log pkgport.Logger,
 ) {
 	h := handler.NewAvatarHandler(useCases, log)
 

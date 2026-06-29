@@ -5,21 +5,21 @@ import (
 	"context"
 	"time"
 
-	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	presport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/port"
 )
 
 // OutboxPublisherWorker runs a background task to publish pending outbox events.
 type OutboxPublisherWorker struct {
 	useCases presport.AvatarUseCases
-	log      appport.Logger
+	log      pkgport.Logger
 	interval time.Duration
 }
 
 // NewOutboxPublisherWorker creates a background task to publish pending outbox events.
 func NewOutboxPublisherWorker(
 	useCases presport.AvatarUseCases,
-	log appport.Logger,
+	log pkgport.Logger,
 	interval time.Duration,
 ) *OutboxPublisherWorker {
 	return &OutboxPublisherWorker{

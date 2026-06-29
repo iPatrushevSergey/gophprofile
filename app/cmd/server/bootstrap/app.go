@@ -9,14 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	avatarworker "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/worker"
 )
 
 // App represents the application lifecycle.
 type App struct {
 	Server          *http.Server
-	Log             appport.Logger
+	Log             pkgport.Logger
 	ShutdownTimeout time.Duration
 	TLSCertFile     string
 	TLSKeyFile      string

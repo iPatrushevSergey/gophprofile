@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/labstack/echo/v4"
 )
 
@@ -18,7 +18,7 @@ type Compressor interface {
 }
 
 // CompressMiddleware supporting multiple compression strategies.
-func CompressMiddleware(log port.Logger, compressors ...Compressor) echo.MiddlewareFunc {
+func CompressMiddleware(log pkgport.Logger, compressors ...Compressor) echo.MiddlewareFunc {
 	encodingToCompressor := make(map[string]Compressor)
 	for _, compressor := range compressors {
 		encodingToCompressor[compressor.ContentEncoding()] = compressor

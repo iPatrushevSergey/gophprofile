@@ -10,6 +10,7 @@ import (
 	easyjson "github.com/mailru/easyjson"
 	amqp091 "github.com/rabbitmq/amqp091-go"
 
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq/converter"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq/converter/generated"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq/model"
@@ -33,7 +34,7 @@ var _ appport.EventConsumer = (*Consumer)(nil)
 // Consumer reads avatar lifecycle events from RabbitMQ.
 type Consumer struct {
 	cfg  Config
-	log  appport.Logger
+	log  pkgport.Logger
 	conv converter.MessageConverter
 
 	mu              sync.Mutex
@@ -44,7 +45,7 @@ type Consumer struct {
 }
 
 // NewConsumer creates a RabbitMQ event consumer.
-func NewConsumer(cfg Config, log appport.Logger) (*Consumer, error) {
+func NewConsumer(cfg Config, log pkgport.Logger) (*Consumer, error) {
 	c := &Consumer{
 		cfg:  cfg,
 		log:  log,

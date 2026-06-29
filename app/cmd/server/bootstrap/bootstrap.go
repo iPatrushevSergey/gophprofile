@@ -14,12 +14,12 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/apputil"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	avatarclock "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/clock"
 	avatargenerator "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/generator"
 	avatarminio "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/minio"
 	avatarpostgres "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres"
 	avatarrmq "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/rabbitmq"
-	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/config"
 )
 
@@ -35,7 +35,7 @@ func Run() error {
 	}
 
 	// Initialize logger.
-	var _ appport.Logger = (*logger.ZapLogger)(nil)
+	var _ pkgport.Logger = (*logger.ZapLogger)(nil)
 	log, err := logger.NewZapLogger(cfg.Logger)
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)

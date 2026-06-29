@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
 )
 
@@ -13,7 +14,7 @@ type ExpireUploadingAvatars struct {
 	avatarWriter         appport.AvatarWriter
 	avatarStorage        appport.AvatarStorage
 	clock                appport.Clock
-	log                  appport.Logger
+	log                  pkgport.Logger
 	uploadReservationTTL time.Duration
 }
 
@@ -23,7 +24,7 @@ func NewExpireUploadingAvatars(
 	avatarWriter appport.AvatarWriter,
 	avatarStorage appport.AvatarStorage,
 	clock appport.Clock,
-	log appport.Logger,
+	log pkgport.Logger,
 	uploadReservationTTL time.Duration,
 ) appport.UseCase[struct{}, struct{}] {
 	return &ExpireUploadingAvatars{

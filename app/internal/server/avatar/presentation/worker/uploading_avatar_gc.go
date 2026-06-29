@@ -5,21 +5,21 @@ import (
 	"context"
 	"time"
 
-	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	presport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/port"
 )
 
 // UploadingAvatarGCWorker runs a background task to expire uploading avatar reservations.
 type UploadingAvatarGCWorker struct {
 	useCases presport.AvatarUseCases
-	log      appport.Logger
+	log      pkgport.Logger
 	interval time.Duration
 }
 
 // NewUploadingAvatarGCWorker creates a background task to expire uploading avatar reservations.
 func NewUploadingAvatarGCWorker(
 	useCases presport.AvatarUseCases,
-	log appport.Logger,
+	log pkgport.Logger,
 	interval time.Duration,
 ) *UploadingAvatarGCWorker {
 	return &UploadingAvatarGCWorker{

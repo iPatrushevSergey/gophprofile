@@ -8,13 +8,14 @@ import (
 	"syscall"
 	"time"
 
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 	processingworker "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/presentation/worker"
 )
 
 // App represents the application lifecycle.
 type App struct {
-	Log             appport.Logger
+	Log             pkgport.Logger
 	ShutdownTimeout time.Duration
 
 	UseCases                    GlobalUseCases

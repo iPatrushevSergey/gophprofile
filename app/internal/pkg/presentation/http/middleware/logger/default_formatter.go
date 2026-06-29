@@ -1,12 +1,12 @@
 package logger
 
-import "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
+import pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 
 // DefaultLogFormatter implements standard logging logic.
 type DefaultLogFormatter struct{}
 
 // Log writes a default log entry.
-func (f *DefaultLogFormatter) Log(log port.Logger, p LogParams) {
+func (f *DefaultLogFormatter) Log(log pkgport.Logger, p LogParams) {
 	log.Info("HTTP request",
 		"uri", p.Ctx.Request().RequestURI,
 		"method", p.Ctx.Request().Method,

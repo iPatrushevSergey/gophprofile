@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/labstack/echo/v4"
 )
 
 // LogFormatter abstraction for logging HTTP request details.
 type LogFormatter interface {
-	Log(log port.Logger, params LogParams)
+	Log(log pkgport.Logger, params LogParams)
 }
 
 // LogParams contains data available for logging.
@@ -25,7 +25,7 @@ type LogParams struct {
 }
 
 // LoggerMiddleware is HTTP request logging middleware with injected formatter.
-func LoggerMiddleware(log port.Logger, formatter LogFormatter) echo.MiddlewareFunc {
+func LoggerMiddleware(log pkgport.Logger, formatter LogFormatter) echo.MiddlewareFunc {
 	if formatter == nil {
 		formatter = &DefaultLogFormatter{}
 	}
