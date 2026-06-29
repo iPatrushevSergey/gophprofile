@@ -16,6 +16,7 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/testutil"
 	avatarpostgres "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/repository/postgres"
+	avatarapplication "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/dto"
 	processorvo "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/domain/vo"
 	serverpostgres "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres"
@@ -55,7 +56,7 @@ func TestAvatarRepository_UpdateProcessingStatusAndComplete(t *testing.T) {
 	)
 	require.NoError(t, serverRepo.Create(ctx, avatar))
 
-	require.NoError(t, processorRepo.UpdateProcessingStatus(ctx, id, processorvo.ProcessingStatusProcessing, now))
+	require.NoError(t, processorRepo.StartProcessing(ctx, id, now))
 
 	thumbnailKeys := map[processorvo.ThumbnailSize]map[processorvo.OutputFormat]string{
 		processorvo.ThumbnailSize100: {processorvo.OutputFormatJPEG: "user-1/" + id + "/100x100/jpeg"},
@@ -72,4 +73,33 @@ func TestAvatarRepository_UpdateProcessingStatusAndComplete(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, processorvo.ProcessingStatusCompleted, found.ProcessingStatus)
 	assert.Equal(t, "user-1/"+id+"/100x100/jpeg", found.ThumbnailS3Keys[processorvo.ThumbnailSize100][processorvo.OutputFormatJPEG])
+}
+
+func TestAvatarRepository_StartProcessing(t *testing.T) {
+	serverRepo, processorRepo, pool := setupRepos(t)
+	truncateAvatars(t, pool)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	id := uuid.NewString()
+	avatar := serverentity.NewAvatar(
+		id,
+		"user-1",
+		"avatar.png",
+		"image/png",
+		100,
+		serverentity.OriginalObjectKey("user-1", id),
+		vo.UploadStatusCompleted,
+		now,
+	)
+	require.NoError(t, serverRepo.Create(ctx, avatar))
+
+	require.NoError(t, processorRepo.StartProcessing(ctx, id, now))
+
+	found, err := processorRepo.FindByID(ctx, id)
+	require.NoError(t, err)
+	assert.Equal(t, processorvo.ProcessingStatusProcessing, found.ProcessingStatus)
+
+	err = processorRepo.StartProcessing(ctx, id, now.Add(time.Second))
+	require.ErrorIs(t, err, avatarapplication.ErrAlreadyProcessed)
 }
