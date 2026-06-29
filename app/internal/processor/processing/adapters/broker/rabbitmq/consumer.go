@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	easyjson "github.com/mailru/easyjson"
 	amqp091 "github.com/rabbitmq/amqp091-go"
 
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
@@ -17,6 +16,7 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/domain/vo"
+	easyjson "github.com/mailru/easyjson"
 )
 
 const (
@@ -122,47 +122,17 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						attempt = int(count) + 1
 					}
 
-					routingKey := delivery.RoutingKey
-					if routingKey == c.cfg.RetryReturnRoutingKey {
-						if original, ok := delivery.Headers[originalRoutingKeyHeader].(string); ok && original != "" {
-							routingKey = original
-						}
-					}
-
-					var (
-						msg dto.BrokerMessage
-						err error
-					)
-
-					switch vo.EventType(routingKey) {
-					case vo.EventAvatarUploaded:
-						var eventModel model.AvatarUploadedEvent
-						if err = easyjson.Unmarshal(delivery.Body, &eventModel); err != nil {
-							err = fmt.Errorf("decode avatar uploaded event: %w", err)
-							break
-						}
-						uploaded := c.conv.AvatarUploadedEventModelToAvatarUploadedEventDto(eventModel)
-						msg.Uploaded = &uploaded
-					case vo.EventAvatarDeleted:
-						var eventModel model.AvatarDeletedEvent
-						if err = easyjson.Unmarshal(delivery.Body, &eventModel); err != nil {
-							err = fmt.Errorf("decode avatar deleted event: %w", err)
-							break
-						}
-						deleted := c.conv.AvatarDeletedEventModelToAvatarDeletedEventDto(eventModel)
-						msg.Deleted = &deleted
-					default:
-						err = fmt.Errorf("rabbitmq: unknown routing key %q", routingKey)
-					}
-
+					msg, routingKey, err := c.decodeBrokerMessage(delivery)
 					if err != nil {
 						c.log.Error("rabbitmq: skip invalid broker message",
 							"error", err,
 							"routing_key", routingKey,
 						)
+
 						c.mu.Lock()
 						nackErr := delivery.Nack(false, false)
 						c.mu.Unlock()
+
 						if nackErr != nil {
 							c.log.Error("rabbitmq: nack invalid broker message failed",
 								"error", nackErr,
@@ -184,6 +154,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						c.mu.Lock()
 						nackErr := delivery.Nack(false, true)
 						c.mu.Unlock()
+
 						if nackErr != nil {
 							c.log.Error("rabbitmq: nack on shutdown failed",
 								"error", nackErr,
@@ -198,6 +169,38 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 	}()
 
 	return messages, nil
+}
+
+func (c *Consumer) decodeBrokerMessage(delivery amqp091.Delivery) (dto.BrokerMessage, string, error) {
+	routingKey := delivery.RoutingKey
+	if routingKey == c.cfg.RetryReturnRoutingKey {
+		if original, ok := delivery.Headers[originalRoutingKeyHeader].(string); ok && original != "" {
+			routingKey = original
+		}
+	}
+
+	var msg dto.BrokerMessage
+
+	switch vo.EventType(routingKey) {
+	case vo.EventAvatarUploaded:
+		var eventModel model.AvatarUploadedEvent
+		if err := easyjson.Unmarshal(delivery.Body, &eventModel); err != nil {
+			return dto.BrokerMessage{}, routingKey, fmt.Errorf("decode avatar uploaded event: %w", err)
+		}
+		uploaded := c.conv.AvatarUploadedEventModelToAvatarUploadedEventDto(eventModel)
+		msg.Uploaded = &uploaded
+	case vo.EventAvatarDeleted:
+		var eventModel model.AvatarDeletedEvent
+		if err := easyjson.Unmarshal(delivery.Body, &eventModel); err != nil {
+			return dto.BrokerMessage{}, routingKey, fmt.Errorf("decode avatar deleted event: %w", err)
+		}
+		deleted := c.conv.AvatarDeletedEventModelToAvatarDeletedEventDto(eventModel)
+		msg.Deleted = &deleted
+	default:
+		return dto.BrokerMessage{}, routingKey, fmt.Errorf("rabbitmq: unknown routing key %q", routingKey)
+	}
+
+	return msg, routingKey, nil
 }
 
 // Close closes the RabbitMQ connection.
