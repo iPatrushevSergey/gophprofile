@@ -75,6 +75,36 @@ func (r *AvatarRepository) FindByID(ctx context.Context, id string) (*entity.Ava
 	return &avatar, nil
 }
 
+// StartProcessing marks a pending avatar as processing.
+func (r *AvatarRepository) StartProcessing(ctx context.Context, id string, updatedAt time.Time) error {
+	avatarID, err := uuid.Parse(id)
+	if err != nil {
+		return application.ErrBadInput
+	}
+
+	return r.transactor.DoWithRetry(ctx, func() error {
+		q := r.transactor.GetQuerier(ctx)
+
+		tag, err := q.Exec(ctx, `
+			UPDATE avatars
+			SET processing_status = $2, updated_at = $3
+			WHERE id = $1
+				AND deleted_at IS NULL
+				AND upload_status = $4
+				AND processing_status = $5`,
+			avatarID, string(vo.ProcessingStatusProcessing), updatedAt,
+			string(vo.UploadStatusCompleted), string(vo.ProcessingStatusPending),
+		)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return application.ErrAlreadyProcessed
+		}
+		return nil
+	})
+}
+
 // UpdateProcessingStatus updates processing status.
 func (r *AvatarRepository) UpdateProcessingStatus(
 	ctx context.Context,
