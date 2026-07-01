@@ -22,11 +22,33 @@ import (
 
 // Config holds grouped processor configuration.
 type Config struct {
-	Logger logger.Config           `mapstructure:"logger"`
-	DB     postgres.Config         `mapstructure:"database"`
-	MinIO  processingminio.Config  `mapstructure:"minio"`
-	Broker processingbroker.Config `mapstructure:"broker"`
-	Worker Worker                  `mapstructure:"worker"`
+	Logger    logger.Config           `mapstructure:"logger"`
+	Telemetry Telemetry               `mapstructure:"telemetry"`
+	DB        postgres.Config         `mapstructure:"database"`
+	MinIO     processingminio.Config  `mapstructure:"minio"`
+	Broker    processingbroker.Config `mapstructure:"broker"`
+	Worker    Worker                  `mapstructure:"worker"`
+}
+
+// Telemetry holds OpenTelemetry settings.
+type Telemetry struct {
+	Enabled      bool    `mapstructure:"enabled"`
+	OTLPEndpoint string  `mapstructure:"otlp_endpoint"`
+	OTLPInsecure bool    `mapstructure:"otlp_insecure"`
+	SampleRatio  float64 `mapstructure:"sample_ratio"`
+	Environment  string  `mapstructure:"environment"`
+}
+
+// Validate trims and checks telemetry settings.
+func (t *Telemetry) Validate() error {
+	t.OTLPEndpoint = strings.TrimSpace(t.OTLPEndpoint)
+	t.Environment = strings.TrimSpace(t.Environment)
+
+	if t.SampleRatio < 0 || t.SampleRatio > 1 {
+		return fmt.Errorf("sample_ratio must be between 0 and 1")
+	}
+
+	return nil
 }
 
 // Worker holds background worker settings.
@@ -153,6 +175,11 @@ func resolveConfigPath(fs *pflag.FlagSet) string {
 // setDefaults sets the default values for the processor.
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("logger.level", "info")
+	v.SetDefault("telemetry.enabled", false)
+	v.SetDefault("telemetry.otlp_endpoint", "localhost:4317")
+	v.SetDefault("telemetry.otlp_insecure", true)
+	v.SetDefault("telemetry.sample_ratio", 1.0)
+	v.SetDefault("telemetry.environment", "development")
 	v.SetDefault("worker.shutdown_timeout", "10s")
 	v.SetDefault("database.uri", "")
 	v.SetDefault("database.max_conns", 10)
@@ -228,6 +255,10 @@ func bindFlags(v *viper.Viper, fs *pflag.FlagSet) error {
 func finalizeConfig(cfg *Config, configPath string) error {
 	if err := cfg.Logger.Validate(); err != nil {
 		return fmt.Errorf("logger: %w", err)
+	}
+
+	if err := cfg.Telemetry.Validate(); err != nil {
+		return fmt.Errorf("telemetry: %w", err)
 	}
 
 	if err := cfg.DB.Validate(); err != nil {
