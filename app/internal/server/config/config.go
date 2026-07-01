@@ -23,11 +23,33 @@ import (
 
 // Config holds grouped server configuration.
 type Config struct {
-	Server Server             `mapstructure:"server"`
-	Logger logger.Config      `mapstructure:"logger"`
-	DB     postgres.Config    `mapstructure:"database"`
-	MinIO  avatarminio.Config `mapstructure:"minio"`
-	Broker avatarrmq.Config   `mapstructure:"broker"`
+	Server    Server             `mapstructure:"server"`
+	Logger    logger.Config      `mapstructure:"logger"`
+	Telemetry Telemetry          `mapstructure:"telemetry"`
+	DB        postgres.Config    `mapstructure:"database"`
+	MinIO     avatarminio.Config `mapstructure:"minio"`
+	Broker    avatarrmq.Config   `mapstructure:"broker"`
+}
+
+// Telemetry holds OpenTelemetry settings.
+type Telemetry struct {
+	Enabled      bool    `mapstructure:"enabled"`
+	OTLPEndpoint string  `mapstructure:"otlp_endpoint"`
+	OTLPInsecure bool    `mapstructure:"otlp_insecure"`
+	SampleRatio  float64 `mapstructure:"sample_ratio"`
+	Environment  string  `mapstructure:"environment"`
+}
+
+// Validate trims and checks telemetry settings.
+func (t *Telemetry) Validate() error {
+	t.OTLPEndpoint = strings.TrimSpace(t.OTLPEndpoint)
+	t.Environment = strings.TrimSpace(t.Environment)
+
+	if t.SampleRatio < 0 || t.SampleRatio > 1 {
+		return fmt.Errorf("sample_ratio must be between 0 and 1")
+	}
+
+	return nil
 }
 
 // Server holds HTTP server settings.
@@ -197,6 +219,11 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.cert_file", "")
 	v.SetDefault("server.key_file", "")
 	v.SetDefault("logger.level", "info")
+	v.SetDefault("telemetry.enabled", false)
+	v.SetDefault("telemetry.otlp_endpoint", "localhost:4317")
+	v.SetDefault("telemetry.otlp_insecure", true)
+	v.SetDefault("telemetry.sample_ratio", 1.0)
+	v.SetDefault("telemetry.environment", "development")
 	v.SetDefault("database.uri", "")
 	v.SetDefault("database.max_conns", 25)
 	v.SetDefault("database.min_conns", 5)
@@ -269,6 +296,10 @@ func bindFlags(v *viper.Viper, fs *pflag.FlagSet) error {
 func finalizeConfig(cfg *Config, configPath string) error {
 	if err := cfg.Logger.Validate(); err != nil {
 		return fmt.Errorf("logger: %w", err)
+	}
+
+	if err := cfg.Telemetry.Validate(); err != nil {
+		return fmt.Errorf("telemetry: %w", err)
 	}
 
 	if err := cfg.DB.Validate(); err != nil {
