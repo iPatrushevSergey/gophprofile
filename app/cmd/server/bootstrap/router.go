@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	zaplogger "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	authmw "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/auth"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/compression"
 	mwlogger "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/logger"
@@ -17,7 +17,7 @@ import (
 
 // NewGlobalRouter composes global middleware and module routers.
 // Auth middleware applies only to routes registered inside the protected group.
-func NewGlobalRouter(useCases GlobalUseCases, log *zaplogger.ZapLogger) (*echo.Echo, error) {
+func NewGlobalRouter(useCases GlobalUseCases, log pkgport.Logger) (*echo.Echo, error) {
 	r := echo.New()
 
 	r.Use(middleware.Recover())
