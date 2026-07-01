@@ -34,6 +34,7 @@ type Config struct {
 // Telemetry holds OpenTelemetry settings.
 type Telemetry struct {
 	Enabled      bool    `mapstructure:"enabled"`
+	ServiceName  string  `mapstructure:"service_name"`
 	OTLPEndpoint string  `mapstructure:"otlp_endpoint"`
 	OTLPInsecure bool    `mapstructure:"otlp_insecure"`
 	SampleRatio  float64 `mapstructure:"sample_ratio"`
@@ -42,8 +43,13 @@ type Telemetry struct {
 
 // Validate trims and checks telemetry settings.
 func (t *Telemetry) Validate() error {
+	t.ServiceName = strings.TrimSpace(t.ServiceName)
 	t.OTLPEndpoint = strings.TrimSpace(t.OTLPEndpoint)
 	t.Environment = strings.TrimSpace(t.Environment)
+
+	if t.ServiceName == "" {
+		return fmt.Errorf("service_name is required")
+	}
 
 	if t.SampleRatio < 0 || t.SampleRatio > 1 {
 		return fmt.Errorf("sample_ratio must be between 0 and 1")
@@ -220,6 +226,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.key_file", "")
 	v.SetDefault("logger.level", "info")
 	v.SetDefault("telemetry.enabled", false)
+	v.SetDefault("telemetry.service_name", "gophprofile-server")
 	v.SetDefault("telemetry.otlp_endpoint", "localhost:4317")
 	v.SetDefault("telemetry.otlp_insecure", true)
 	v.SetDefault("telemetry.sample_ratio", 1.0)
