@@ -15,8 +15,9 @@ import (
 
 // App represents the application lifecycle.
 type App struct {
-	Log             pkgport.Logger
-	ShutdownTimeout time.Duration
+	Log               pkgport.Logger
+	TelemetryShutdown func(context.Context) error
+	ShutdownTimeout   time.Duration
 
 	UseCases                    GlobalUseCases
 	EventConsumer               appport.EventConsumer
@@ -67,6 +68,12 @@ func (a *App) Stop() error {
 	if a.EventConsumer != nil {
 		if err := a.EventConsumer.Close(); err != nil {
 			a.Log.Error("close event consumer failed", "error", err)
+		}
+	}
+
+	if a.TelemetryShutdown != nil {
+		if err := a.TelemetryShutdown(ctx); err != nil {
+			a.Log.Error("telemetry shutdown failed", "error", err)
 		}
 	}
 
