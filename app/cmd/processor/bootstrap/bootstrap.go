@@ -7,6 +7,12 @@ import (
 	"fmt"
 
 	"github.com/spf13/pflag"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
@@ -40,11 +46,57 @@ func Run() error {
 	}
 	defer func() { _ = log.Sync() }()
 
+	// Initialize OpenTelemetry.
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	var telemetryShutdown func(context.Context) error
+	if cfg.Telemetry.Enabled {
+		telCtx := context.Background()
+
+		exporterOpts := []otlptracegrpc.Option{
+			otlptracegrpc.WithEndpoint(cfg.Telemetry.OTLPEndpoint),
+		}
+		if cfg.Telemetry.OTLPInsecure {
+			exporterOpts = append(exporterOpts, otlptracegrpc.WithInsecure())
+		}
+
+		exporter, err := otlptracegrpc.New(telCtx, exporterOpts...)
+		if err != nil {
+			return fmt.Errorf("create otlp trace exporter: %w", err)
+		}
+
+		res, err := resource.New(telCtx,
+			resource.WithAttributes(
+				semconv.ServiceName("gophprofile-processor"),
+				semconv.ServiceVersion(apputil.Version),
+				semconv.DeploymentEnvironmentName(cfg.Telemetry.Environment),
+			),
+			resource.WithFromEnv(),
+			resource.WithProcess(),
+			resource.WithOS(),
+		)
+		if err != nil {
+			return fmt.Errorf("create otel resource: %w", err)
+		}
+
+		tp := sdktrace.NewTracerProvider(
+			sdktrace.WithBatcher(exporter),
+			sdktrace.WithResource(res),
+			sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(cfg.Telemetry.SampleRatio))),
+		)
+		otel.SetTracerProvider(tp)
+		telemetryShutdown = tp.Shutdown
+	}
+
 	// Log processor startup details.
 	log.Info("starting gophprofile processor",
 		"database_configured", cfg.DB.Pool.URI != "",
 		"minio_configured", cfg.MinIO.Enabled(),
 		"broker_configured", cfg.Broker.Enabled(),
+		"telemetry_enabled", cfg.Telemetry.Enabled,
 	)
 
 	// Initialize database pool.
@@ -106,10 +158,11 @@ func Run() error {
 
 	// Initialize application.
 	app := &App{
-		Log:             log,
-		ShutdownTimeout: cfg.Worker.ShutdownTimeout,
-		UseCases:        useCases,
-		EventConsumer:   eventConsumer,
+		Log:               log,
+		TelemetryShutdown: telemetryShutdown,
+		ShutdownTimeout:   cfg.Worker.ShutdownTimeout,
+		UseCases:          useCases,
+		EventConsumer:     eventConsumer,
 	}
 
 	// Start application.
