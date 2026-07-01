@@ -72,7 +72,7 @@ func Run() error {
 
 		res, err := resource.New(telCtx,
 			resource.WithAttributes(
-				semconv.ServiceName("gophprofile-server"),
+				semconv.ServiceName(cfg.Telemetry.ServiceName),
 				semconv.ServiceVersion(apputil.Version),
 				semconv.DeploymentEnvironmentName(cfg.Telemetry.Environment),
 			),
@@ -161,7 +161,7 @@ func Run() error {
 	useCases := NewGlobalUseCases(useCaseOpts...)
 
 	// Initialize router.
-	router, err := NewGlobalRouter(useCases, log)
+	router, err := NewGlobalRouter(useCases, log, cfg)
 	if err != nil {
 		return fmt.Errorf("router: %w", err)
 	}
