@@ -15,11 +15,12 @@ import (
 
 // App represents the application lifecycle.
 type App struct {
-	Server          *http.Server
-	Log             pkgport.Logger
-	ShutdownTimeout time.Duration
-	TLSCertFile     string
-	TLSKeyFile      string
+	Server            *http.Server
+	Log               pkgport.Logger
+	TelemetryShutdown func(context.Context) error
+	ShutdownTimeout   time.Duration
+	TLSCertFile       string
+	TLSKeyFile        string
 
 	UseCases                    GlobalUseCases
 	UploadGCInterval            time.Duration
@@ -86,6 +87,12 @@ func (a *App) Stop() error {
 	}
 	if a.cancelOutboxPublisherWorker != nil {
 		a.cancelOutboxPublisherWorker()
+	}
+
+	if a.TelemetryShutdown != nil {
+		if err := a.TelemetryShutdown(ctx); err != nil {
+			a.Log.Error("telemetry shutdown failed", "error", err)
+		}
 	}
 
 	a.Log.Info("server stopped gracefully")
