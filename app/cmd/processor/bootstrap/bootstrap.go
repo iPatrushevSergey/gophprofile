@@ -70,7 +70,7 @@ func Run() error {
 
 		res, err := resource.New(telCtx,
 			resource.WithAttributes(
-				semconv.ServiceName("gophprofile-processor"),
+				semconv.ServiceName(cfg.Telemetry.ServiceName),
 				semconv.ServiceVersion(apputil.Version),
 				semconv.DeploymentEnvironmentName(cfg.Telemetry.Environment),
 			),
