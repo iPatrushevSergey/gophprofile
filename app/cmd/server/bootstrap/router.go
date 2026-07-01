@@ -7,20 +7,25 @@ import (
 	"github.com/labstack/echo-contrib/pprof"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	authmw "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/auth"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/compression"
 	mwlogger "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/logger"
 	avatarrouter "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/http/router"
+	"github.com/iPatrushevSergey/gophprofile/app/internal/server/config"
 )
 
 // NewGlobalRouter composes global middleware and module routers.
 // Auth middleware applies only to routes registered inside the protected group.
-func NewGlobalRouter(useCases GlobalUseCases, log pkgport.Logger) (*echo.Echo, error) {
+func NewGlobalRouter(useCases GlobalUseCases, log pkgport.Logger, cfg config.Config) (*echo.Echo, error) {
 	r := echo.New()
 
 	r.Use(middleware.Recover())
+	if cfg.Telemetry.Enabled {
+		r.Use(otelecho.Middleware(cfg.Telemetry.ServiceName))
+	}
 
 	gzipCompressor, err := compression.NewGzipCompressor(gzip.DefaultCompression)
 	if err != nil {
