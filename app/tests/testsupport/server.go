@@ -18,6 +18,7 @@ import (
 	avatarclock "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/clock"
 	avatargenerator "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/generator"
 	avatarpostgres "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres"
+	"github.com/iPatrushevSergey/gophprofile/app/internal/server/config"
 )
 
 const (
@@ -63,7 +64,9 @@ func NewTestServer(t *testing.T) *TestServer {
 		serverbootstrap.WithUploadReservationTTL(E2EUploadReservationTTL),
 	)
 
-	router, err := serverbootstrap.NewGlobalRouter(useCases, log)
+	router, err := serverbootstrap.NewGlobalRouter(useCases, log, config.Config{
+		Telemetry: config.Telemetry{ServiceName: "gophprofile-server"},
+	})
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(router)
