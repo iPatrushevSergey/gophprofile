@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	tcrabbitmq "github.com/testcontainers/testcontainers-go/modules/rabbitmq"
 
+	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
 	avatarrabbitmq "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/rabbitmq"
 )
 
@@ -70,7 +71,7 @@ func SetupRabbitMQ(tb testing.TB) *avatarrabbitmq.Publisher {
 		PublishInterval:         time.Second,
 		OutboxBatchSize:         10,
 		OutboxPublishingTimeout: time.Minute,
-	})
+	}, oteltelemetry.NewTracer())
 	require.NoError(tb, err)
 
 	return publisher
