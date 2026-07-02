@@ -13,14 +13,14 @@ const (
 	SpanKindConsumer SpanKind = "consumer"
 )
 
-// Tracer starts manual spans and propagates trace context without leaking the telemetry library into callers.
+// Tracer starts manual spans and propagates trace context.
 type Tracer interface {
 	Start(ctx context.Context, config SpanConfig) (context.Context, Span)
 	ContextToMap(ctx context.Context) map[string]string
 	MapToContext(ctx context.Context, carrier map[string]string) context.Context
 }
 
-// Span represents an in-flight trace span.
+// Span represents a span in a trace.
 type Span interface {
 	End()
 	Fail(err error)
@@ -33,7 +33,7 @@ type Attribute struct {
 	Value any
 }
 
-// SpanConfig describes a manual span started through the tracer port.
+// SpanConfig describes a span.
 type SpanConfig struct {
 	Key        string
 	Name       string
