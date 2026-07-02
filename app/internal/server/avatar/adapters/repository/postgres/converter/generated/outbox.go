@@ -23,6 +23,11 @@ func (c *OutboxConverterImpl) OutboxDeletedCreateToOutboxEventModel(source dto.O
 		return modelOutboxEvent, err
 	}
 	modelOutboxEvent.Payload = jsonRawMessage
+	jsonRawMessage2, err := converter.TraceCarrierToRawMessage(source.TraceCarrier)
+	if err != nil {
+		return modelOutboxEvent, err
+	}
+	modelOutboxEvent.TraceCarrier = jsonRawMessage2
 	modelOutboxEvent.CreatedAt = converter.CopyTime(source.CreatedAt)
 	return modelOutboxEvent, nil
 }
@@ -38,6 +43,11 @@ func (c *OutboxConverterImpl) OutboxUploadedCreateToOutboxEventModel(source dto.
 		return modelOutboxEvent, err
 	}
 	modelOutboxEvent.Payload = jsonRawMessage
+	jsonRawMessage2, err := converter.TraceCarrierToRawMessage(source.TraceCarrier)
+	if err != nil {
+		return modelOutboxEvent, err
+	}
+	modelOutboxEvent.TraceCarrier = jsonRawMessage2
 	modelOutboxEvent.CreatedAt = converter.CopyTime(source.CreatedAt)
 	return modelOutboxEvent, nil
 }
