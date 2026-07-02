@@ -9,6 +9,9 @@ import (
 	easyjson "github.com/mailru/easyjson"
 	amqp091 "github.com/rabbitmq/amqp091-go"
 
+	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
+
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/rabbitmq/converter"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/rabbitmq/converter/generated"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
@@ -24,8 +27,9 @@ var _ appport.EventPublisher = (*Publisher)(nil)
 
 // Publisher publishes avatar events to RabbitMQ.
 type Publisher struct {
-	cfg  Config
-	conv converter.MessageConverter
+	cfg    Config
+	conv   converter.MessageConverter
+	tracer pkgport.Tracer
 
 	mu              sync.Mutex
 	conn            *amqp091.Connection
@@ -35,10 +39,11 @@ type Publisher struct {
 }
 
 // NewPublisher creates a RabbitMQ event publisher.
-func NewPublisher(cfg Config) (*Publisher, error) {
+func NewPublisher(cfg Config, tracer pkgport.Tracer) (*Publisher, error) {
 	p := &Publisher{
-		cfg:  cfg,
-		conv: &generated.MessageConverterImpl{},
+		cfg:    cfg,
+		conv:   &generated.MessageConverterImpl{},
+		tracer: tracer,
 	}
 	if !cfg.Enabled() {
 		return p, nil
@@ -55,10 +60,12 @@ func NewPublisher(cfg Config) (*Publisher, error) {
 }
 
 // PublishAvatarUploaded publishes avatar uploaded event.
-func (p *Publisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarUploadedEvent) error {
+func (p *Publisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarUploadedEvent, traceCarrier map[string]string) error {
 	if !p.cfg.Enabled() {
 		return errBrokerNotConfigured
 	}
+
+	ctx = p.tracer.MapToContext(ctx, traceCarrier)
 
 	model := p.conv.AvatarUploadedEventDtoToAvatarUploadedEventModel(event)
 	body, err := easyjson.Marshal(model)
@@ -73,7 +80,27 @@ func (p *Publisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarU
 		return err
 	}
 
-	if err := p.ch.PublishWithContext(
+	// Start a span for the publish operation.
+	ctx, span := p.tracer.Start(ctx, pkgport.SpanConfig{
+		Key:  "avatar.adapter.rabbitmq_publisher.publish_avatar_uploaded",
+		Name: string(vo.OutboxEventAvatarUploaded) + " send",
+		Kind: pkgport.SpanKindProducer,
+		Attributes: []pkgport.Attribute{
+			{Key: "messaging.system", Value: "rabbitmq"},
+			{Key: "messaging.destination.name", Value: p.cfg.Exchange},
+			{Key: "messaging.rabbitmq.destination.routing_key", Value: string(vo.OutboxEventAvatarUploaded)},
+			{Key: "messaging.operation.type", Value: "send"},
+		},
+	})
+	headers := oteltelemetry.InjectAMQP(ctx, amqp091.Table{})
+	var publishErr error
+	defer func() {
+		span.Fail(publishErr)
+		span.End()
+	}()
+
+	// Publish the message to RabbitMQ.
+	if publishErr = p.ch.PublishWithContext(
 		ctx,
 		p.cfg.Exchange,
 		string(vo.OutboxEventAvatarUploaded),
@@ -82,24 +109,29 @@ func (p *Publisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarU
 		amqp091.Publishing{
 			ContentType:  "application/json",
 			DeliveryMode: amqp091.Persistent,
+			Headers:      headers,
 			Body:         body,
 		},
-	); err != nil {
-		return fmt.Errorf("rabbitmq publish: %w", err)
+	); publishErr != nil {
+		return fmt.Errorf("rabbitmq publish: %w", publishErr)
 	}
 
+	// Wait for the publish confirmation.
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			publishErr = ctx.Err()
+			return publishErr
 		case ret := <-p.publishReturns:
-			return fmt.Errorf(
+			publishErr = fmt.Errorf(
 				"rabbitmq unroutable message: exchange=%s routing_key=%s reply_code=%d reply_text=%s",
 				ret.Exchange, ret.RoutingKey, ret.ReplyCode, ret.ReplyText,
 			)
+			return publishErr
 		case confirm := <-p.publishConfirms:
 			if !confirm.Ack {
-				return fmt.Errorf("rabbitmq publish not acknowledged")
+				publishErr = fmt.Errorf("rabbitmq publish not acknowledged")
+				return publishErr
 			}
 			return nil
 		}
@@ -107,10 +139,12 @@ func (p *Publisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarU
 }
 
 // PublishAvatarDeleted publishes avatar deleted event.
-func (p *Publisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDeletedEvent) error {
+func (p *Publisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDeletedEvent, traceCarrier map[string]string) error {
 	if !p.cfg.Enabled() {
 		return errBrokerNotConfigured
 	}
+
+	ctx = p.tracer.MapToContext(ctx, traceCarrier)
 
 	model := p.conv.AvatarDeletedEventDtoToAvatarDeletedEventModel(event)
 	body, err := easyjson.Marshal(model)
@@ -125,7 +159,27 @@ func (p *Publisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDe
 		return err
 	}
 
-	if err := p.ch.PublishWithContext(
+	// Start a span for the publish operation.
+	ctx, span := p.tracer.Start(ctx, pkgport.SpanConfig{
+		Key:  "avatar.adapter.rabbitmq_publisher.publish_avatar_deleted",
+		Name: string(vo.OutboxEventAvatarDeleted) + " send",
+		Kind: pkgport.SpanKindProducer,
+		Attributes: []pkgport.Attribute{
+			{Key: "messaging.system", Value: "rabbitmq"},
+			{Key: "messaging.destination.name", Value: p.cfg.Exchange},
+			{Key: "messaging.rabbitmq.destination.routing_key", Value: string(vo.OutboxEventAvatarDeleted)},
+			{Key: "messaging.operation.type", Value: "send"},
+		},
+	})
+	headers := oteltelemetry.InjectAMQP(ctx, amqp091.Table{})
+	var publishErr error
+	defer func() {
+		span.Fail(publishErr)
+		span.End()
+	}()
+
+	// Publish the message to RabbitMQ.
+	if publishErr = p.ch.PublishWithContext(
 		ctx,
 		p.cfg.Exchange,
 		string(vo.OutboxEventAvatarDeleted),
@@ -134,24 +188,29 @@ func (p *Publisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDe
 		amqp091.Publishing{
 			ContentType:  "application/json",
 			DeliveryMode: amqp091.Persistent,
+			Headers:      headers,
 			Body:         body,
 		},
-	); err != nil {
-		return fmt.Errorf("rabbitmq publish: %w", err)
+	); publishErr != nil {
+		return fmt.Errorf("rabbitmq publish: %w", publishErr)
 	}
 
+	// Wait for the publish confirmation.
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			publishErr = ctx.Err()
+			return publishErr
 		case ret := <-p.publishReturns:
-			return fmt.Errorf(
+			publishErr = fmt.Errorf(
 				"rabbitmq unroutable message: exchange=%s routing_key=%s reply_code=%d reply_text=%s",
 				ret.Exchange, ret.RoutingKey, ret.ReplyCode, ret.ReplyText,
 			)
+			return publishErr
 		case confirm := <-p.publishConfirms:
 			if !confirm.Ack {
-				return fmt.Errorf("rabbitmq publish not acknowledged")
+				publishErr = fmt.Errorf("rabbitmq publish not acknowledged")
+				return publishErr
 			}
 			return nil
 		}
