@@ -17,6 +17,7 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
+	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/apputil"
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/config"
@@ -91,6 +92,9 @@ func Run() error {
 		telemetryShutdown = tp.Shutdown
 	}
 
+	// Initialize tracer.
+	tracer := oteltelemetry.NewTracer()
+
 	// Log processor startup details.
 	log.Info("starting gophprofile processor",
 		"database_configured", cfg.DB.Pool.URI != "",
@@ -141,7 +145,7 @@ func Run() error {
 	if !cfg.Broker.Enabled() {
 		return fmt.Errorf("broker: url is required")
 	}
-	eventConsumer, err := processingbroker.NewConsumer(cfg.Broker, log)
+	eventConsumer, err := processingbroker.NewConsumer(cfg.Broker, log, tracer)
 	if err != nil {
 		return fmt.Errorf("rabbitmq consumer: %w", err)
 	}
@@ -163,6 +167,7 @@ func Run() error {
 		ShutdownTimeout:   cfg.Worker.ShutdownTimeout,
 		UseCases:          useCases,
 		EventConsumer:     eventConsumer,
+		Tracer:            tracer,
 	}
 
 	// Start application.
