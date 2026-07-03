@@ -7,6 +7,7 @@ require (
 	github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2 v2.0.3
 	github.com/avito-tech/go-transaction-manager/trm/v2 v2.0.3
 	github.com/disintegration/imaging v1.6.2
+	github.com/exaring/otelpgx v0.11.1
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
