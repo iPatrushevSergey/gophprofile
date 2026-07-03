@@ -23,6 +23,7 @@ type App struct {
 	TLSKeyFile        string
 
 	UseCases                    GlobalUseCases
+	Tracer                      pkgport.Tracer
 	UploadGCInterval            time.Duration
 	OutboxPublishInterval       time.Duration
 	cancelUploadGCWorker        context.CancelFunc
@@ -49,6 +50,7 @@ func (a *App) Start() {
 		go avatarworker.NewOutboxPublisherWorker(
 			a.UseCases,
 			a.Log,
+			a.Tracer,
 			a.OutboxPublishInterval,
 		).Run(workerCtx)
 	}
