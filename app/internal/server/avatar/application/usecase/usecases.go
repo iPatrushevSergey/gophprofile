@@ -18,6 +18,7 @@ type AvatarUseCasesParams struct {
 	Transactor              appport.Transactor
 	Clock                   appport.Clock
 	Logger                  pkgport.Logger
+	Tracer                  pkgport.Tracer
 	OutboxBatchSize         int
 	OutboxPublishingTimeout time.Duration
 	UploadReservationTTL    time.Duration
@@ -45,6 +46,7 @@ func NewAvatarUseCases(p AvatarUseCasesParams) *AvatarUseCases {
 			p.Transactor,
 			p.IDGenerator,
 			p.Clock,
+			p.Tracer,
 		),
 		Get:         NewGetAvatar(p.AvatarRepo, p.AvatarStorage),
 		GetMetadata: NewGetAvatarMetadata(p.AvatarRepo),
@@ -56,6 +58,7 @@ func NewAvatarUseCases(p AvatarUseCasesParams) *AvatarUseCases {
 			p.Transactor,
 			p.IDGenerator,
 			p.Clock,
+			p.Tracer,
 		),
 		Health: NewHealthCheck(
 			p.AvatarRepo,
