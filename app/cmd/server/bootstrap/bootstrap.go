@@ -195,6 +195,7 @@ func Run() error {
 		TLSCertFile:       cert,
 		TLSKeyFile:        key,
 		UseCases:          useCases,
+		Tracer:            tracer,
 	}
 	if cfg.MinIO.Enabled() {
 		app.UploadGCInterval = cfg.MinIO.UploadGCInterval
