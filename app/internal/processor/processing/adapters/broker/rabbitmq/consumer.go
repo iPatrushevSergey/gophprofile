@@ -9,6 +9,7 @@ import (
 
 	amqp091 "github.com/rabbitmq/amqp091-go"
 
+	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq/converter"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq/converter/generated"
@@ -33,9 +34,10 @@ var _ appport.EventConsumer = (*Consumer)(nil)
 
 // Consumer reads avatar lifecycle events from RabbitMQ.
 type Consumer struct {
-	cfg  Config
-	log  pkgport.Logger
-	conv converter.MessageConverter
+	cfg    Config
+	log    pkgport.Logger
+	conv   converter.MessageConverter
+	tracer pkgport.Tracer
 
 	mu              sync.Mutex
 	conn            *amqp091.Connection
@@ -45,11 +47,12 @@ type Consumer struct {
 }
 
 // NewConsumer creates a RabbitMQ event consumer.
-func NewConsumer(cfg Config, log pkgport.Logger) (*Consumer, error) {
+func NewConsumer(cfg Config, log pkgport.Logger, tracer pkgport.Tracer) (*Consumer, error) {
 	c := &Consumer{
-		cfg:  cfg,
-		log:  log,
-		conv: &generated.MessageConverterImpl{},
+		cfg:    cfg,
+		log:    log,
+		conv:   &generated.MessageConverterImpl{},
+		tracer: tracer,
 	}
 	if !cfg.Enabled() {
 		return c, nil
@@ -122,8 +125,30 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						attempt = int(count) + 1
 					}
 
-					msg, routingKey, err := c.decodeBrokerMessage(delivery)
+					msgCtx := oteltelemetry.ExtractAMQP(ctx, delivery.Headers)
+					routingKey := delivery.RoutingKey
+					if routingKey == c.cfg.RetryReturnRoutingKey {
+						if original, ok := delivery.Headers[originalRoutingKeyHeader].(string); ok && original != "" {
+							routingKey = original
+						}
+					}
+					msgCtx, receiveSpan := c.tracer.Start(msgCtx, pkgport.SpanConfig{
+						Key:  "processing.adapter.rabbitmq_consumer.receive",
+						Name: routingKey + " receive",
+						Kind: pkgport.SpanKindConsumer,
+						Attributes: []pkgport.Attribute{
+							{Key: "messaging.system", Value: "rabbitmq"},
+							{Key: "messaging.destination.name", Value: c.cfg.Queue},
+							{Key: "messaging.rabbitmq.destination.routing_key", Value: routingKey},
+							{Key: "messaging.operation.type", Value: "receive"},
+						},
+					})
+
+					msg, _, err := c.decodeBrokerMessage(delivery)
 					if err != nil {
+						receiveSpan.Fail(err)
+						receiveSpan.End()
+
 						c.log.Error("rabbitmq: skip invalid broker message",
 							"error", err,
 							"routing_key", routingKey,
@@ -142,6 +167,8 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						continue
 					}
 
+					msg.Ctx = msgCtx
+
 					msg.Delivery = &messageDelivery{
 						consumer: c,
 						delivery: delivery,
@@ -150,7 +177,10 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 
 					select {
 					case messages <- msg:
+						receiveSpan.End()
 					case <-ctx.Done():
+						receiveSpan.Fail(ctx.Err())
+						receiveSpan.End()
 						c.mu.Lock()
 						nackErr := delivery.Nack(false, true)
 						c.mu.Unlock()
@@ -171,6 +201,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 	return messages, nil
 }
 
+// decodeBrokerMessage decodes a broker message from a RabbitMQ delivery.
 func (c *Consumer) decodeBrokerMessage(delivery amqp091.Delivery) (dto.BrokerMessage, string, error) {
 	routingKey := delivery.RoutingKey
 	if routingKey == c.cfg.RetryReturnRoutingKey {
