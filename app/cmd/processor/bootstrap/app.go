@@ -21,7 +21,6 @@ type App struct {
 
 	UseCases                    GlobalUseCases
 	EventConsumer               appport.EventConsumer
-	Tracer                      pkgport.Tracer
 	cancelAvatarProcessorWorker context.CancelFunc
 	workerDone                  chan struct{}
 }
@@ -40,7 +39,6 @@ func (a *App) Start() {
 		if err := processingworker.NewAvatarProcessorWorker(
 			a.UseCases,
 			a.Log,
-			a.Tracer,
 		).Run(workerCtx); err != nil && !errors.Is(err, context.Canceled) {
 			a.Log.Error("processor worker failed", "error", err)
 		}
