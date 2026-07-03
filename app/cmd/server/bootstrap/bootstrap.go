@@ -19,6 +19,7 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
+	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/apputil"
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	avatarclock "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/clock"
@@ -93,6 +94,9 @@ func Run() error {
 		telemetryShutdown = tp.Shutdown
 	}
 
+	// Initialize tracer.
+	tracer := oteltelemetry.NewTracer()
+
 	// Log server startup details.
 	log.Info("starting gophprofile server",
 		"address", cfg.Server.Address,
@@ -128,6 +132,7 @@ func Run() error {
 		WithTransactor(transactor),
 		WithAvatarRepo(avatarpostgres.NewAvatarRepository(transactor)),
 		WithOutboxRepo(avatarpostgres.NewOutboxRepository(transactor)),
+		WithTracer(tracer),
 		WithIDGenerator(avatargenerator.NewIDGenerator()),
 		WithClock(avatarclock.NewRealClock()),
 		WithLogger(log),
@@ -148,7 +153,7 @@ func Run() error {
 	useCaseOpts = append(useCaseOpts, WithAvatarStorage(avatarStorage))
 
 	// Initialize RabbitMQ event publisher.
-	eventPublisher, err := avatarrmq.NewPublisher(cfg.Broker)
+	eventPublisher, err := avatarrmq.NewPublisher(cfg.Broker, tracer)
 	if err != nil {
 		return fmt.Errorf("rabbitmq event publisher: %w", err)
 	}
