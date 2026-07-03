@@ -14,6 +14,7 @@ import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
+	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/testutil"
 	avatarclock "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/clock"
 	avatargenerator "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/generator"
@@ -56,6 +57,7 @@ func NewTestServer(t *testing.T) *TestServer {
 		serverbootstrap.WithOutboxRepo(avatarpostgres.NewOutboxRepository(transactor)),
 		serverbootstrap.WithAvatarStorage(avatarStorage),
 		serverbootstrap.WithEventPublisher(eventPublisher),
+		serverbootstrap.WithTracer(oteltelemetry.NewTracer()),
 		serverbootstrap.WithIDGenerator(avatargenerator.NewIDGenerator()),
 		serverbootstrap.WithClock(avatarclock.NewRealClock()),
 		serverbootstrap.WithLogger(log),
