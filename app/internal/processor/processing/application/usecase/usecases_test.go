@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
+	pkgportmocks "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port/mocks"
 	portmocks "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port/mocks"
 )
 
@@ -18,6 +19,7 @@ func TestNewProcessingUseCases_wiresUseCases(t *testing.T) {
 		ImageProcessor: portmocks.NewMockImageProcessor(ctrl),
 		EventConsumer:  portmocks.NewMockEventConsumer(ctrl),
 		Clock:          portmocks.NewMockClock(ctrl),
+		Tracer:         pkgportmocks.NewMockTracer(ctrl),
 	})
 
 	assert.NotNil(t, uc.SubscribeAvatarEvents)
