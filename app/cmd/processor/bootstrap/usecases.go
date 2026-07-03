@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/apputil"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	appdto "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 	processingappusecase "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/usecase"
@@ -35,6 +36,7 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 		ImageProcessor: p.imageProcessor,
 		EventConsumer:  p.eventConsumer,
 		Clock:          p.clock,
+		Tracer:         p.tracer,
 	})
 
 	return &globalUseCases{
@@ -72,6 +74,7 @@ type globalUseCasesParams struct {
 	imageProcessor appport.ImageProcessor
 	eventConsumer  appport.EventConsumer
 	clock          appport.Clock
+	tracer         pkgport.Tracer
 }
 
 // validate validates the global use cases parameters.
@@ -90,6 +93,9 @@ func (p globalUseCasesParams) validate() {
 	}
 	if p.clock == nil {
 		panic("NewGlobalUseCases: WithClock is required")
+	}
+	if p.tracer == nil {
+		panic("NewGlobalUseCases: WithTracer is required")
 	}
 }
 
@@ -116,4 +122,9 @@ func WithEventConsumer(c appport.EventConsumer) apputil.Option[globalUseCasesPar
 // WithClock sets the clock.
 func WithClock(c appport.Clock) apputil.Option[globalUseCasesParams] {
 	return func(p *globalUseCasesParams) { p.clock = c }
+}
+
+// WithTracer sets the tracer.
+func WithTracer(t pkgport.Tracer) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.tracer = t }
 }
