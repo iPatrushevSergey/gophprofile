@@ -30,6 +30,11 @@ func TestUploadAvatar_Execute(t *testing.T) {
 		idGen := portmocks.NewMockIDGenerator(ctrl)
 		clock := portmocks.NewMockClock(ctrl)
 		tracer := pkgportmocks.NewMockTracer(ctrl)
+		span := pkgportmocks.NewMockSpan(ctrl)
+		span.EXPECT().Fail(gomock.Any())
+		span.EXPECT().End()
+		tracer.EXPECT().Start(ctx, gomock.Any()).Return(ctx, span)
+		span.EXPECT().AddAttributes(gomock.Any())
 
 		idGen.EXPECT().NewID().Return("avatar-1", nil)
 		idGen.EXPECT().NewID().Return("outbox-1", nil)
