@@ -43,6 +43,10 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 		idGen := portmocks.NewMockIDGenerator(ctrl)
 		clock := portmocks.NewMockClock(ctrl)
 		tracer := pkgportmocks.NewMockTracer(ctrl)
+		span := pkgportmocks.NewMockSpan(ctrl)
+		span.EXPECT().Fail(gomock.Any())
+		span.EXPECT().End()
+		tracer.EXPECT().Start(ctx, gomock.Any()).Return(ctx, span)
 
 		reader.EXPECT().FindByID(ctx, "avatar-1").Return(avatar, nil)
 		clock.EXPECT().Now().Return(now)
@@ -70,6 +74,12 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 	t.Run("forbidden", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		reader := portmocks.NewMockAvatarReader(ctrl)
+		tracer := pkgportmocks.NewMockTracer(ctrl)
+		span := pkgportmocks.NewMockSpan(ctrl)
+		span.EXPECT().Fail(gomock.Any())
+		span.EXPECT().End()
+		tracer.EXPECT().Start(ctx, gomock.Any()).Return(ctx, span)
+
 		reader.EXPECT().FindByID(ctx, "avatar-1").Return(avatar, nil)
 
 		uc := NewDeleteAvatar(
@@ -79,7 +89,7 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 			portmocks.NewMockTransactor(ctrl),
 			portmocks.NewMockIDGenerator(ctrl),
 			portmocks.NewMockClock(ctrl),
-			pkgportmocks.NewMockTracer(ctrl),
+			tracer,
 		)
 		_, err := uc.Execute(ctx, dto.DeleteAvatarInput{AvatarID: "avatar-1", RequestUserID: "other-user"})
 		assert.ErrorIs(t, err, application.ErrForbidden)
