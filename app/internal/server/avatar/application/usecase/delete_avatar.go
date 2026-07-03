@@ -42,7 +42,21 @@ func NewDeleteAvatar(
 }
 
 // Execute deletes an avatar.
-func (uc *DeleteAvatar) Execute(ctx context.Context, in dto.DeleteAvatarInput) (struct{}, error) {
+func (uc *DeleteAvatar) Execute(ctx context.Context, in dto.DeleteAvatarInput) (_ struct{}, err error) {
+	ctx, span := uc.tracer.Start(ctx, pkgport.SpanConfig{
+		Key:  "avatar.application.delete_avatar.execute",
+		Name: "delete avatar",
+		Kind: pkgport.SpanKindInternal,
+		Attributes: []pkgport.Attribute{
+			{Key: "avatar_id", Value: in.AvatarID},
+			{Key: "user_id", Value: in.RequestUserID},
+		},
+	})
+	defer func() {
+		span.Fail(err)
+		span.End()
+	}()
+
 	avatar, err := uc.avatarReader.FindByID(ctx, in.AvatarID)
 	if err != nil {
 		return struct{}{}, err
