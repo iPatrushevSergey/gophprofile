@@ -45,6 +45,7 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 		Transactor:              p.transactor,
 		Clock:                   p.clock,
 		Logger:                  p.logger,
+		Tracer:                  p.tracer,
 		OutboxBatchSize:         p.outboxBatchSize,
 		OutboxPublishingTimeout: p.outboxPublishingTimeout,
 		UploadReservationTTL:    p.uploadReservationTTL,
@@ -112,6 +113,7 @@ type globalUseCasesParams struct {
 	transactor              appport.Transactor
 	clock                   appport.Clock
 	logger                  pkgport.Logger
+	tracer                  pkgport.Tracer
 	outboxBatchSize         int
 	outboxPublishingTimeout time.Duration
 	uploadReservationTTL    time.Duration
@@ -183,6 +185,11 @@ func WithClock(c appport.Clock) apputil.Option[globalUseCasesParams] {
 // WithLogger sets the logger.
 func WithLogger(l pkgport.Logger) apputil.Option[globalUseCasesParams] {
 	return func(p *globalUseCasesParams) { p.logger = l }
+}
+
+// WithTracer sets the tracer.
+func WithTracer(t pkgport.Tracer) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.tracer = t }
 }
 
 // WithOutboxBatchSize sets the outbox publish batch size.
