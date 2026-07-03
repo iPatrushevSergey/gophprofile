@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	pkgportmocks "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port/mocks"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
 	portmocks "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port/mocks"
@@ -41,6 +42,7 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 		transactor := portmocks.NewMockTransactor(ctrl)
 		idGen := portmocks.NewMockIDGenerator(ctrl)
 		clock := portmocks.NewMockClock(ctrl)
+		tracer := pkgportmocks.NewMockTracer(ctrl)
 
 		reader.EXPECT().FindByID(ctx, "avatar-1").Return(avatar, nil)
 		clock.EXPECT().Now().Return(now)
@@ -48,17 +50,19 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 		transactor.EXPECT().RunInTransaction(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
 		)
+		tracer.EXPECT().ContextToMap(ctx).Return(map[string]string{"traceparent": "00-test"})
 		writer.EXPECT().SoftDelete(ctx, "avatar-1", "user-1", now).Return(nil)
 		outbox.EXPECT().CreateDeleted(ctx, dto.OutboxDeletedCreate{
-			ID:        "outbox-1",
-			CreatedAt: now,
+			ID:           "outbox-1",
+			CreatedAt:    now,
+			TraceCarrier: map[string]string{"traceparent": "00-test"},
 			Event: dto.AvatarDeletedEvent{
 				AvatarID: "avatar-1",
 				S3Keys:   []string{"user-1/avatar-1/original", "user-1/avatar-1/100x100/jpeg"},
 			},
 		}).Return(nil)
 
-		uc := NewDeleteAvatar(reader, writer, outbox, transactor, idGen, clock)
+		uc := NewDeleteAvatar(reader, writer, outbox, transactor, idGen, clock, tracer)
 		_, err := uc.Execute(ctx, dto.DeleteAvatarInput{AvatarID: "avatar-1", RequestUserID: "user-1"})
 		require.NoError(t, err)
 	})
@@ -75,6 +79,7 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 			portmocks.NewMockTransactor(ctrl),
 			portmocks.NewMockIDGenerator(ctrl),
 			portmocks.NewMockClock(ctrl),
+			pkgportmocks.NewMockTracer(ctrl),
 		)
 		_, err := uc.Execute(ctx, dto.DeleteAvatarInput{AvatarID: "avatar-1", RequestUserID: "other-user"})
 		assert.ErrorIs(t, err, application.ErrForbidden)
