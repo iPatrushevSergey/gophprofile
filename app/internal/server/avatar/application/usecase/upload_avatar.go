@@ -44,17 +44,33 @@ func NewUploadAvatar(
 }
 
 // Execute uploads an avatar.
-func (uc *UploadAvatar) Execute(ctx context.Context, in dto.UploadAvatarInput) (dto.UploadAvatarOutput, error) {
+func (uc *UploadAvatar) Execute(ctx context.Context, in dto.UploadAvatarInput) (out dto.UploadAvatarOutput, err error) {
 	switch in.MimeType {
 	case "image/jpeg", "image/png", "image/webp":
 	default:
 		return dto.UploadAvatarOutput{}, application.ErrBadInput
 	}
 
+	ctx, span := uc.tracer.Start(ctx, pkgport.SpanConfig{
+		Key:  "avatar.application.upload_avatar.execute",
+		Name: "upload avatar",
+		Kind: pkgport.SpanKindInternal,
+		Attributes: []pkgport.Attribute{
+			{Key: "user_id", Value: in.UserID},
+			{Key: "mime_type", Value: in.MimeType},
+			{Key: "file_size", Value: len(in.Content)},
+		},
+	})
+	defer func() {
+		span.Fail(err)
+		span.End()
+	}()
+
 	id, err := uc.idGenerator.NewID()
 	if err != nil {
 		return dto.UploadAvatarOutput{}, err
 	}
+	span.AddAttributes(pkgport.Attribute{Key: "avatar_id", Value: id})
 
 	now := uc.clock.Now()
 	s3Key := entity.OriginalObjectKey(in.UserID, id)
@@ -69,11 +85,11 @@ func (uc *UploadAvatar) Execute(ctx context.Context, in dto.UploadAvatarInput) (
 		now,
 	)
 
-	if err := uc.avatarWriter.Create(ctx, avatar); err != nil {
+	if err = uc.avatarWriter.Create(ctx, avatar); err != nil {
 		return dto.UploadAvatarOutput{}, err
 	}
 
-	if err := uc.avatarStorage.Put(ctx, s3Key, in.Content, in.MimeType); err != nil {
+	if err = uc.avatarStorage.Put(ctx, s3Key, in.Content, in.MimeType); err != nil {
 		return dto.UploadAvatarOutput{}, err
 	}
 
