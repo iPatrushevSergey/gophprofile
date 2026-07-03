@@ -56,29 +56,29 @@ func (mr *MockEventPublisherMockRecorder) Ping(ctx any) *gomock.Call {
 }
 
 // PublishAvatarDeleted mocks base method.
-func (m *MockEventPublisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDeletedEvent) error {
+func (m *MockEventPublisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDeletedEvent, traceCarrier map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PublishAvatarDeleted", ctx, event)
+	ret := m.ctrl.Call(m, "PublishAvatarDeleted", ctx, event, traceCarrier)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PublishAvatarDeleted indicates an expected call of PublishAvatarDeleted.
-func (mr *MockEventPublisherMockRecorder) PublishAvatarDeleted(ctx, event any) *gomock.Call {
+func (mr *MockEventPublisherMockRecorder) PublishAvatarDeleted(ctx, event, traceCarrier any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishAvatarDeleted", reflect.TypeOf((*MockEventPublisher)(nil).PublishAvatarDeleted), ctx, event)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishAvatarDeleted", reflect.TypeOf((*MockEventPublisher)(nil).PublishAvatarDeleted), ctx, event, traceCarrier)
 }
 
 // PublishAvatarUploaded mocks base method.
-func (m *MockEventPublisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarUploadedEvent) error {
+func (m *MockEventPublisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarUploadedEvent, traceCarrier map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PublishAvatarUploaded", ctx, event)
+	ret := m.ctrl.Call(m, "PublishAvatarUploaded", ctx, event, traceCarrier)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PublishAvatarUploaded indicates an expected call of PublishAvatarUploaded.
-func (mr *MockEventPublisherMockRecorder) PublishAvatarUploaded(ctx, event any) *gomock.Call {
+func (mr *MockEventPublisherMockRecorder) PublishAvatarUploaded(ctx, event, traceCarrier any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishAvatarUploaded", reflect.TypeOf((*MockEventPublisher)(nil).PublishAvatarUploaded), ctx, event)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishAvatarUploaded", reflect.TypeOf((*MockEventPublisher)(nil).PublishAvatarUploaded), ctx, event, traceCarrier)
 }
