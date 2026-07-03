@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
@@ -16,6 +17,7 @@ type DeleteAvatar struct {
 	transactor   appport.Transactor
 	idGenerator  appport.IDGenerator
 	clock        appport.Clock
+	tracer       pkgport.Tracer
 }
 
 // NewDeleteAvatar returns the delete avatar use case.
@@ -26,6 +28,7 @@ func NewDeleteAvatar(
 	transactor appport.Transactor,
 	idGenerator appport.IDGenerator,
 	clock appport.Clock,
+	tracer pkgport.Tracer,
 ) appport.UseCase[dto.DeleteAvatarInput, struct{}] {
 	return &DeleteAvatar{
 		avatarReader: avatarReader,
@@ -34,6 +37,7 @@ func NewDeleteAvatar(
 		transactor:   transactor,
 		idGenerator:  idGenerator,
 		clock:        clock,
+		tracer:       tracer,
 	}
 }
 
@@ -61,8 +65,9 @@ func (uc *DeleteAvatar) Execute(ctx context.Context, in dto.DeleteAvatarInput) (
 		}
 
 		return uc.outboxWriter.CreateDeleted(txCtx, dto.OutboxDeletedCreate{
-			ID:        outboxID,
-			CreatedAt: now,
+			ID:           outboxID,
+			CreatedAt:    now,
+			TraceCarrier: uc.tracer.ContextToMap(txCtx),
 			Event: dto.AvatarDeletedEvent{
 				AvatarID: avatar.ID,
 				S3Keys:   avatar.AllS3Keys(),
