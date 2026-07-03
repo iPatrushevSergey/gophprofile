@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
@@ -18,6 +19,7 @@ type UploadAvatar struct {
 	transactor    appport.Transactor
 	idGenerator   appport.IDGenerator
 	clock         appport.Clock
+	tracer        pkgport.Tracer
 }
 
 // NewUploadAvatar returns the upload avatar use case.
@@ -28,6 +30,7 @@ func NewUploadAvatar(
 	transactor appport.Transactor,
 	idGenerator appport.IDGenerator,
 	clock appport.Clock,
+	tracer pkgport.Tracer,
 ) appport.UseCase[dto.UploadAvatarInput, dto.UploadAvatarOutput] {
 	return &UploadAvatar{
 		avatarWriter:  avatarWriter,
@@ -36,6 +39,7 @@ func NewUploadAvatar(
 		transactor:    transactor,
 		idGenerator:   idGenerator,
 		clock:         clock,
+		tracer:        tracer,
 	}
 }
 
@@ -84,8 +88,9 @@ func (uc *UploadAvatar) Execute(ctx context.Context, in dto.UploadAvatarInput) (
 		}
 
 		return uc.outboxWriter.CreateUploaded(txCtx, dto.OutboxUploadedCreate{
-			ID:        outboxID,
-			CreatedAt: now,
+			ID:           outboxID,
+			CreatedAt:    now,
+			TraceCarrier: uc.tracer.ContextToMap(txCtx),
 			Event: dto.AvatarUploadedEvent{
 				AvatarID: avatar.ID,
 				UserID:   avatar.UserID,
