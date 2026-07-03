@@ -133,7 +133,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						}
 					}
 					msgCtx, receiveSpan := c.tracer.Start(msgCtx, pkgport.SpanConfig{
-						Key:  "processing.adapter.rabbitmq_consumer.receive",
+						Key:  "processing.adapter.consumer.receive_messages",
 						Name: routingKey + " receive",
 						Kind: pkgport.SpanKindConsumer,
 						Attributes: []pkgport.Attribute{
