@@ -49,7 +49,7 @@ func (w *AvatarProcessorWorker) Run(ctx context.Context) error {
 		switch {
 		case msg.Uploaded != nil:
 			processCtx, processSpan = w.tracer.Start(processCtx, pkgport.SpanConfig{
-				Key:  "processing.presentation.avatar_processor_worker.process_uploaded",
+				Key:  "processing.presentation.avatar_processor.process_uploaded_avatar",
 				Name: "process avatar.uploaded",
 				Kind: pkgport.SpanKindConsumer,
 				Attributes: []pkgport.Attribute{
@@ -94,7 +94,7 @@ func (w *AvatarProcessorWorker) Run(ctx context.Context) error {
 			}
 		case msg.Deleted != nil:
 			processCtx, processSpan = w.tracer.Start(processCtx, pkgport.SpanConfig{
-				Key:  "processing.presentation.avatar_processor_worker.process_deleted",
+				Key:  "processing.presentation.avatar_processor.purge_deleted_avatar",
 				Name: "process avatar.deleted",
 				Kind: pkgport.SpanKindConsumer,
 				Attributes: []pkgport.Attribute{
