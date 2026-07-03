@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 )
@@ -12,6 +13,7 @@ type ProcessingUseCasesParams struct {
 	ImageProcessor appport.ImageProcessor
 	EventConsumer  appport.EventConsumer
 	Clock          appport.Clock
+	Tracer         pkgport.Tracer
 }
 
 // ProcessingUseCases holds processing module use cases exposed to the composition root.
@@ -32,7 +34,8 @@ func NewProcessingUseCases(p ProcessingUseCasesParams) *ProcessingUseCases {
 			p.AvatarStorage,
 			p.ImageProcessor,
 			p.Clock,
+			p.Tracer,
 		),
-		PurgeDeleted: NewPurgeDeletedAvatar(p.AvatarStorage),
+		PurgeDeleted: NewPurgeDeletedAvatar(p.AvatarStorage, p.Tracer),
 	}
 }
