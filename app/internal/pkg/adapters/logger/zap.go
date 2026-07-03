@@ -1,8 +1,10 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -11,7 +13,7 @@ type ZapLogger struct {
 	zl *zap.Logger
 }
 
-// NewZapLogger builds a zap.Logger from config.
+// NewZapLogger builds a zap logger from config.
 func NewZapLogger(cfg Config) (*ZapLogger, error) {
 	lvl, err := zap.ParseAtomicLevel(cfg.Level)
 	if err != nil {
@@ -26,20 +28,24 @@ func NewZapLogger(cfg Config) (*ZapLogger, error) {
 	return &ZapLogger{zl: zl}, nil
 }
 
-func (z *ZapLogger) Debug(msg string, args ...any) {
-	z.zl.Debug(msg, toZapFields(args)...)
+// Debug implements the Debug method of the Logger interface.
+func (z *ZapLogger) Debug(ctx context.Context, msg string, args ...any) {
+	z.zl.Debug(msg, toZapFields(z.appendTraceFields(ctx, args))...)
 }
 
-func (z *ZapLogger) Info(msg string, args ...any) {
-	z.zl.Info(msg, toZapFields(args)...)
+// Info implements the Info method of the Logger interface.
+func (z *ZapLogger) Info(ctx context.Context, msg string, args ...any) {
+	z.zl.Info(msg, toZapFields(z.appendTraceFields(ctx, args))...)
 }
 
-func (z *ZapLogger) Warn(msg string, args ...any) {
-	z.zl.Warn(msg, toZapFields(args)...)
+// Warn implements the Warn method of the Logger interface.
+func (z *ZapLogger) Warn(ctx context.Context, msg string, args ...any) {
+	z.zl.Warn(msg, toZapFields(z.appendTraceFields(ctx, args))...)
 }
 
-func (z *ZapLogger) Error(msg string, args ...any) {
-	z.zl.Error(msg, toZapFields(args)...)
+// Error implements the Error method of the Logger interface.
+func (z *ZapLogger) Error(ctx context.Context, msg string, args ...any) {
+	z.zl.Error(msg, toZapFields(z.appendTraceFields(ctx, args))...)
 }
 
 // Sync flushes buffered logs.
@@ -47,6 +53,24 @@ func (z *ZapLogger) Sync() error {
 	return z.zl.Sync()
 }
 
+// appendTraceFields appends trace fields to the arguments.
+func (z *ZapLogger) appendTraceFields(ctx context.Context, args []any) []any {
+	if ctx == nil {
+		return args
+	}
+
+	spanContext := trace.SpanFromContext(ctx).SpanContext()
+	if !spanContext.IsValid() {
+		return args
+	}
+
+	return append([]any{
+		"trace_id", spanContext.TraceID().String(),
+		"span_id", spanContext.SpanID().String(),
+	}, args...)
+}
+
+// toZapFields converts a slice of any to a slice of zap.Field.
 func toZapFields(args []any) []zap.Field {
 	if len(args) == 0 {
 		return nil
@@ -62,6 +86,7 @@ func toZapFields(args []any) []zap.Field {
 	return fields
 }
 
+// toZapField converts a key and value to a zap.Field.
 func toZapField(key string, val any) zap.Field {
 	switch v := val.(type) {
 	case error:
