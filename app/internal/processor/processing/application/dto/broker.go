@@ -10,6 +10,7 @@ type MessageDelivery interface {
 
 // BrokerMessage is a decoded broker event paired with its delivery handle.
 type BrokerMessage struct {
+	Ctx      context.Context
 	Uploaded *AvatarUploadedEvent
 	Deleted  *AvatarDeletedEvent
 	Delivery MessageDelivery
