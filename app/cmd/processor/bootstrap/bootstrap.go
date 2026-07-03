@@ -128,6 +128,7 @@ func Run() error {
 		WithAvatarRepo(processingpostgres.NewAvatarRepository(transactor)),
 		WithClock(processingclock.NewRealClock()),
 		WithImageProcessor(imaging.NewProcessor()),
+		WithTracer(tracer),
 	}
 
 	// Initialize MinIO avatar storage.
@@ -167,7 +168,6 @@ func Run() error {
 		ShutdownTimeout:   cfg.Worker.ShutdownTimeout,
 		UseCases:          useCases,
 		EventConsumer:     eventConsumer,
-		Tracer:            tracer,
 	}
 
 	// Start application.
