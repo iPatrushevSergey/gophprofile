@@ -82,7 +82,7 @@ func (p *Publisher) PublishAvatarUploaded(ctx context.Context, event dto.AvatarU
 
 	// Start a span for the publish operation.
 	ctx, span := p.tracer.Start(ctx, pkgport.SpanConfig{
-		Key:  "avatar.adapter.rabbitmq_publisher.publish_avatar_uploaded",
+		Key:  "avatar.adapter.publisher.publish_avatar_uploaded",
 		Name: string(vo.OutboxEventAvatarUploaded) + " send",
 		Kind: pkgport.SpanKindProducer,
 		Attributes: []pkgport.Attribute{
@@ -161,7 +161,7 @@ func (p *Publisher) PublishAvatarDeleted(ctx context.Context, event dto.AvatarDe
 
 	// Start a span for the publish operation.
 	ctx, span := p.tracer.Start(ctx, pkgport.SpanConfig{
-		Key:  "avatar.adapter.rabbitmq_publisher.publish_avatar_deleted",
+		Key:  "avatar.adapter.publisher.publish_avatar_deleted",
 		Name: string(vo.OutboxEventAvatarDeleted) + " send",
 		Kind: pkgport.SpanKindProducer,
 		Attributes: []pkgport.Attribute{
