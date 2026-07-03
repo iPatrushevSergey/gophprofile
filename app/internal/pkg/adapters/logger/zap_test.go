@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 func TestNewZapLogger(t *testing.T) {
 	log, err := NewZapLogger(Config{Level: "info"})
 	require.NoError(t, err)
-	log.Info("test")
+	log.Info(context.Background(), "test")
 	assert.NoError(t, log.Sync())
 }
 
@@ -24,8 +25,9 @@ func TestZapLogger_keyValuePairs(t *testing.T) {
 	log, err := NewZapLogger(Config{Level: "debug"})
 	require.NoError(t, err)
 
-	log.Debug("d", "k", "v", 42, "n")
-	log.Warn("w", "err", errors.New("test err"))
-	log.Error("e", "n", 1)
+	ctx := context.Background()
+	log.Debug(ctx, "d", "k", "v", 42, "n")
+	log.Warn(ctx, "w", "err", errors.New("test err"))
+	log.Error(ctx, "e", "n", 1)
 	assert.NoError(t, log.Sync())
 }
