@@ -225,6 +225,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.cert_file", "")
 	v.SetDefault("server.key_file", "")
 	v.SetDefault("logger.level", "info")
+	v.SetDefault("logger.backend", "slog")
+	v.SetDefault("logger.format", "json")
 	v.SetDefault("telemetry.enabled", false)
 	v.SetDefault("telemetry.service_name", "gophprofile-server")
 	v.SetDefault("telemetry.otlp_endpoint", "localhost:4317")
