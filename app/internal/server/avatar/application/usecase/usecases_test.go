@@ -25,7 +25,7 @@ func TestNewAvatarUseCases_wiresUseCases(t *testing.T) {
 		Transactor:              pkginmemory.NewTransactor(),
 		Clock:                   portmocks.NewMockClock(ctrl),
 		Logger:                  logger.NewNopLogger(),
-		PoolStats:               postgresadapter.NopPoolStats{},
+		PoolStats:               postgresadapter.NewNopPoolStats(),
 		OutboxBatchSize:         100,
 		OutboxPublishingTimeout: 5 * time.Minute,
 		UploadReservationTTL:    time.Minute,
