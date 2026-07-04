@@ -88,7 +88,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 
 			if err := c.ensureConsumeSession(); err != nil {
 				c.mu.Unlock()
-				c.log.Error("rabbitmq consume setup failed", "error", err)
+				c.log.Error(ctx, "rabbitmq consume setup failed", "error", err)
 				if !wait(ctx, c.cfg.ReconnectInterval) {
 					return
 				}
@@ -98,7 +98,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 			deliveries, err := c.ch.Consume(c.cfg.Queue, "", false, false, false, false, nil)
 			if err != nil {
 				c.mu.Unlock()
-				c.log.Error("rabbitmq consume failed", "error", err)
+				c.log.Error(ctx, "rabbitmq consume failed", "error", err)
 				if !wait(ctx, c.cfg.ReconnectInterval) {
 					return
 				}
@@ -113,7 +113,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 					return
 				case delivery, ok := <-deliveries:
 					if !ok {
-						c.log.Warn("rabbitmq connection lost, reconnecting")
+						c.log.Warn(ctx, "rabbitmq connection lost, reconnecting")
 						if !wait(ctx, c.cfg.ReconnectInterval) {
 							return
 						}
@@ -143,13 +143,12 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 							{Key: "messaging.operation.type", Value: "receive"},
 						},
 					})
-
 					msg, _, err := c.decodeBrokerMessage(delivery)
 					if err != nil {
 						receiveSpan.Fail(err)
 						receiveSpan.End()
 
-						c.log.Error("rabbitmq: skip invalid broker message",
+						c.log.Error(msgCtx, "rabbitmq: skip invalid broker message",
 							"error", err,
 							"routing_key", routingKey,
 						)
@@ -159,7 +158,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						c.mu.Unlock()
 
 						if nackErr != nil {
-							c.log.Error("rabbitmq: nack invalid broker message failed",
+							c.log.Error(msgCtx, "rabbitmq: nack invalid broker message failed",
 								"error", nackErr,
 								"routing_key", routingKey,
 							)
@@ -186,7 +185,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						c.mu.Unlock()
 
 						if nackErr != nil {
-							c.log.Error("rabbitmq: nack on shutdown failed",
+							c.log.Error(msgCtx, "rabbitmq: nack on shutdown failed",
 								"error", nackErr,
 								"routing_key", routingKey,
 							)
@@ -382,7 +381,7 @@ func (d *messageDelivery) Nack(ctx context.Context, requeue bool) error {
 	}
 
 	if d.attempt >= d.consumer.cfg.MaxRetries {
-		d.consumer.log.Warn("rabbitmq: max delivery attempts reached, sending to dlq",
+		d.consumer.log.Warn(ctx, "rabbitmq: max delivery attempts reached, sending to dlq",
 			"routing_key", d.delivery.RoutingKey,
 			"attempt", d.attempt,
 			"max_retries", d.consumer.cfg.MaxRetries,
