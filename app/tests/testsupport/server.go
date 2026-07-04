@@ -48,7 +48,7 @@ func NewTestServer(t *testing.T) *TestServer {
 		retry.WithExponentialBackoff(50*time.Millisecond, 200*time.Millisecond),
 	)
 
-	log, err := logger.NewZapLogger(logger.Config{Level: "error"})
+	log, err := logger.NewZapLogger(logger.Config{Level: "error", Backend: "zap", Format: "json"})
 	require.NoError(t, err)
 
 	useCases := serverbootstrap.NewGlobalUseCases(
@@ -79,5 +79,5 @@ func NewTestServer(t *testing.T) *TestServer {
 
 // APIBase returns the server base URL for HTTP clients.
 func (s *TestServer) APIBase() string {
-	return s.Server.URL
+	return s.Server.URL + "/api/v1"
 }
