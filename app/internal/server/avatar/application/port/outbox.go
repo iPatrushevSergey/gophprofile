@@ -18,6 +18,7 @@ type OutboxWriter interface {
 // OutboxReader provides read access to outbox.
 type OutboxReader interface {
 	MarkPublishing(ctx context.Context, limit int, publishingAt time.Time) ([]dto.OutboxEvent, error)
+	CountPending(ctx context.Context) (int64, error)
 }
 
 // OutboxRepo combines outbox read and write access.
