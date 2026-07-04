@@ -181,6 +181,8 @@ func resolveConfigPath(fs *pflag.FlagSet) string {
 // setDefaults sets the default values for the processor.
 func setDefaults(v *viper.Viper) {
 	v.SetDefault("logger.level", "info")
+	v.SetDefault("logger.backend", "slog")
+	v.SetDefault("logger.format", "json")
 	v.SetDefault("telemetry.enabled", false)
 	v.SetDefault("telemetry.service_name", "gophprofile-processor")
 	v.SetDefault("telemetry.otlp_endpoint", "localhost:4317")
