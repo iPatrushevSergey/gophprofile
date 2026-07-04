@@ -33,6 +33,8 @@ func NewAvatarHandler(useCases presport.AvatarUseCases, log pkgport.Logger) *Ava
 
 // Upload handles avatar upload.
 func (h *AvatarHandler) Upload(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	userID, ok := authmw.UserID(c)
 	if !ok {
 		return c.NoContent(http.StatusUnauthorized)
@@ -51,14 +53,14 @@ func (h *AvatarHandler) Upload(c echo.Context) error {
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		h.log.Error("open upload file failed", "error", err)
+		h.log.Error(ctx, "open upload file failed", "error", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	defer func() { _ = file.Close() }()
 
 	content, err := io.ReadAll(file)
 	if err != nil {
-		h.log.Error("read upload file failed", "error", err)
+		h.log.Error(ctx, "read upload file failed", "error", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	if len(content) > maxAvatarSize {
@@ -69,7 +71,7 @@ func (h *AvatarHandler) Upload(c echo.Context) error {
 	}
 
 	out, err := h.useCases.UploadUseCase().Execute(
-		c.Request().Context(),
+		ctx,
 		appdto.UploadAvatarInput{
 			UserID:   userID,
 			FileName: fileHeader.Filename,
@@ -85,7 +87,7 @@ func (h *AvatarHandler) Upload(c echo.Context) error {
 				Details: "Supported formats: jpeg, png, webp",
 			})
 		default:
-			h.log.Error("upload avatar failed", "error", err)
+			h.log.Error(ctx, "upload avatar failed", "error", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
@@ -101,6 +103,8 @@ func (h *AvatarHandler) Upload(c echo.Context) error {
 
 // Get handles avatar retrieval.
 func (h *AvatarHandler) Get(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	avatarID := c.Param("avatar_id")
 	size := vo.ThumbnailSize(c.QueryParam("size"))
 	if size == "" {
@@ -116,8 +120,6 @@ func (h *AvatarHandler) Get(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, presdto.ErrorResponse{Error: "bad input"})
 	}
 
-	ctx := c.Request().Context()
-
 	if ifNoneMatch := c.Request().Header.Get("If-None-Match"); ifNoneMatch != "" {
 		meta, err := h.useCases.GetMetadataUseCase().Execute(ctx, appdto.GetAvatarMetadataInput{AvatarID: avatarID})
 		if err != nil {
@@ -127,7 +129,7 @@ func (h *AvatarHandler) Get(c echo.Context) error {
 			case application.ErrNotFound:
 				return c.JSON(http.StatusNotFound, presdto.ErrorResponse{Error: "Avatar not found"})
 			default:
-				h.log.Error("get avatar metadata failed", "error", err)
+				h.log.Error(ctx, "get avatar metadata failed", "error", err)
 				return c.NoContent(http.StatusInternalServerError)
 			}
 		}
@@ -161,7 +163,7 @@ func (h *AvatarHandler) Get(c echo.Context) error {
 		case application.ErrNotFound:
 			return c.JSON(http.StatusNotFound, presdto.ErrorResponse{Error: "Avatar not found"})
 		default:
-			h.log.Error("get avatar failed", "error", err)
+			h.log.Error(ctx, "get avatar failed", "error", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
@@ -174,8 +176,10 @@ func (h *AvatarHandler) Get(c echo.Context) error {
 
 // GetMetadata handles avatar metadata retrieval.
 func (h *AvatarHandler) GetMetadata(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	out, err := h.useCases.GetMetadataUseCase().Execute(
-		c.Request().Context(),
+		ctx,
 		appdto.GetAvatarMetadataInput{
 			AvatarID: c.Param("avatar_id"),
 		},
@@ -187,7 +191,7 @@ func (h *AvatarHandler) GetMetadata(c echo.Context) error {
 		case application.ErrNotFound:
 			return c.JSON(http.StatusNotFound, presdto.ErrorResponse{Error: "Avatar not found"})
 		default:
-			h.log.Error("get avatar metadata failed", "error", err)
+			h.log.Error(ctx, "get avatar metadata failed", "error", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
@@ -223,8 +227,10 @@ func (h *AvatarHandler) GetMetadata(c echo.Context) error {
 
 // ListByUser handles listing avatars for a user.
 func (h *AvatarHandler) ListByUser(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	out, err := h.useCases.ListByUserUseCase().Execute(
-		c.Request().Context(),
+		ctx,
 		appdto.ListUserAvatarsInput{UserID: c.Param("user_id")},
 	)
 	if err != nil {
@@ -232,7 +238,7 @@ func (h *AvatarHandler) ListByUser(c echo.Context) error {
 		case application.ErrBadInput:
 			return c.JSON(http.StatusBadRequest, presdto.ErrorResponse{Error: "bad input"})
 		default:
-			h.log.Error("list user avatars failed", "error", err)
+			h.log.Error(ctx, "list user avatars failed", "error", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
@@ -273,13 +279,15 @@ func (h *AvatarHandler) ListByUser(c echo.Context) error {
 
 // Delete handles avatar deletion.
 func (h *AvatarHandler) Delete(c echo.Context) error {
+	ctx := c.Request().Context()
+
 	userID, ok := authmw.UserID(c)
 	if !ok {
 		return c.NoContent(http.StatusUnauthorized)
 	}
 
 	_, err := h.useCases.DeleteUseCase().Execute(
-		c.Request().Context(),
+		ctx,
 		appdto.DeleteAvatarInput{
 			AvatarID:      c.Param("avatar_id"),
 			RequestUserID: userID,
@@ -297,7 +305,7 @@ func (h *AvatarHandler) Delete(c echo.Context) error {
 				Details: "You can only delete your own avatars",
 			})
 		default:
-			h.log.Error("delete avatar failed", "error", err)
+			h.log.Error(ctx, "delete avatar failed", "error", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
@@ -307,9 +315,11 @@ func (h *AvatarHandler) Delete(c echo.Context) error {
 
 // Health handles health check.
 func (h *AvatarHandler) Health(c echo.Context) error {
-	out, err := h.useCases.HealthUseCase().Execute(c.Request().Context(), struct{}{})
+	ctx := c.Request().Context()
+
+	out, err := h.useCases.HealthUseCase().Execute(ctx, struct{}{})
 	if err != nil {
-		h.log.Error("health check failed", "error", err)
+		h.log.Error(ctx, "health check failed", "error", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
