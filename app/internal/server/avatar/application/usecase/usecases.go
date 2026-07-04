@@ -19,6 +19,8 @@ type AvatarUseCasesParams struct {
 	Clock                   appport.Clock
 	Logger                  pkgport.Logger
 	Tracer                  pkgport.Tracer
+	Metrics                 pkgport.Metrics
+	PoolStats               pkgport.PoolStats
 	OutboxBatchSize         int
 	OutboxPublishingTimeout time.Duration
 	UploadReservationTTL    time.Duration
@@ -34,6 +36,7 @@ type AvatarUseCases struct {
 	Health                     appport.UseCase[struct{}, dto.HealthCheckOutput]
 	ExpireUploadingAvatars     appport.UseCase[struct{}, struct{}]
 	PublishPendingOutboxEvents appport.UseCase[struct{}, struct{}]
+	CollectPeriodicMetrics     appport.UseCase[struct{}, struct{}]
 }
 
 // NewAvatarUseCases builds avatar module use cases.
@@ -47,6 +50,7 @@ func NewAvatarUseCases(p AvatarUseCasesParams) *AvatarUseCases {
 			p.IDGenerator,
 			p.Clock,
 			p.Tracer,
+			p.Metrics,
 		),
 		Get:         NewGetAvatar(p.AvatarRepo, p.AvatarStorage),
 		GetMetadata: NewGetAvatarMetadata(p.AvatarRepo),
@@ -59,6 +63,7 @@ func NewAvatarUseCases(p AvatarUseCasesParams) *AvatarUseCases {
 			p.IDGenerator,
 			p.Clock,
 			p.Tracer,
+			p.Metrics,
 		),
 		Health: NewHealthCheck(
 			p.AvatarRepo,
@@ -80,6 +85,12 @@ func NewAvatarUseCases(p AvatarUseCasesParams) *AvatarUseCases {
 			p.Clock,
 			p.OutboxBatchSize,
 			p.OutboxPublishingTimeout,
+		),
+		CollectPeriodicMetrics: NewCollectPeriodicMetrics(
+			p.PoolStats,
+			p.AvatarRepo,
+			p.OutboxRepo,
+			p.Metrics,
 		),
 	}
 }
