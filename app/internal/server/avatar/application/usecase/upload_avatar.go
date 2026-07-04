@@ -20,6 +20,7 @@ type UploadAvatar struct {
 	idGenerator   appport.IDGenerator
 	clock         appport.Clock
 	tracer        pkgport.Tracer
+	metrics       pkgport.Metrics
 }
 
 // NewUploadAvatar returns the upload avatar use case.
@@ -31,6 +32,7 @@ func NewUploadAvatar(
 	idGenerator appport.IDGenerator,
 	clock appport.Clock,
 	tracer pkgport.Tracer,
+	metrics pkgport.Metrics,
 ) appport.UseCase[dto.UploadAvatarInput, dto.UploadAvatarOutput] {
 	return &UploadAvatar{
 		avatarWriter:  avatarWriter,
@@ -40,11 +42,17 @@ func NewUploadAvatar(
 		idGenerator:   idGenerator,
 		clock:         clock,
 		tracer:        tracer,
+		metrics:       metrics,
 	}
 }
 
 // Execute uploads an avatar.
 func (uc *UploadAvatar) Execute(ctx context.Context, in dto.UploadAvatarInput) (out dto.UploadAvatarOutput, err error) {
+	start := uc.clock.Now()
+	defer func() {
+		uc.metrics.RecordUpload(ctx, pkgport.MetricStatus(err, application.ErrBadInput), uc.clock.Now().Sub(start))
+	}()
+
 	switch in.MimeType {
 	case "image/jpeg", "image/png", "image/webp":
 	default:
