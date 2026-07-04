@@ -12,6 +12,7 @@ type AvatarReader interface {
 	FindByID(ctx context.Context, id string) (*entity.Avatar, error)
 	ListByUserID(ctx context.Context, userID string) ([]entity.Avatar, error)
 	ListExpiredUploading(ctx context.Context, before time.Time) ([]entity.Avatar, error)
+	SumCompletedStorageBytes(ctx context.Context) (int64, error)
 	Ping(ctx context.Context) error
 }
 
