@@ -27,7 +27,7 @@ func writeProcessorConfig(t *testing.T, yaml string) string {
 
 func TestFinalizeConfig_ok(t *testing.T) {
 	cfg := Config{
-		Logger:    logger.Config{Level: "info"},
+		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
 		Telemetry: Telemetry{ServiceName: "gophprofile-processor", SampleRatio: 1},
 		Worker:    Worker{ShutdownTimeout: time.Second},
 	}
