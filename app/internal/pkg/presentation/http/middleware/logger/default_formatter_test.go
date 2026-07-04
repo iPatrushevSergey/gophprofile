@@ -8,29 +8,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
-	"github.com/labstack/echo/v4"
+	applogger "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
 )
 
 type recordingLogger struct {
+	lastCtx  context.Context
 	lastInfo []any
 }
 
-func (l *recordingLogger) Debug(msg string, args ...any) {}
-func (l *recordingLogger) Info(msg string, args ...any) {
+func (l *recordingLogger) Debug(context.Context, string, ...any) {}
+func (l *recordingLogger) Info(ctx context.Context, msg string, args ...any) {
 	if msg == "HTTP request" {
+		l.lastCtx = ctx
 		l.lastInfo = append([]any{}, args...)
 	}
 }
-func (l *recordingLogger) Warn(msg string, args ...any)  {}
-func (l *recordingLogger) Error(msg string, args ...any) {}
-func (l *recordingLogger) Sync() error                   { return nil }
+func (l *recordingLogger) Warn(context.Context, string, ...any)  {}
+func (l *recordingLogger) Error(context.Context, string, ...any) {}
+func (l *recordingLogger) Sync() error                           { return nil }
 
 func TestDefaultLogFormatter_Log(t *testing.T) {
 	e := echo.New()
@@ -38,8 +37,8 @@ func TestDefaultLogFormatter_Log(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	f := DefaultLogFormatter{}
-	f.Log(logger.NewNopLogger(), LogParams{
+	f := &DefaultLogFormatter{}
+	f.Log(applogger.NewNopLogger(), LogParams{
 		Ctx:          c,
 		Duration:     time.Millisecond,
 		RequestBody:  []byte("req"),
@@ -48,14 +47,8 @@ func TestDefaultLogFormatter_Log(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
-func TestDefaultLogFormatter_Log_includesTraceFields(t *testing.T) {
-	exporter := tracetest.NewInMemoryExporter()
-	tp := trace.NewTracerProvider(trace.WithSyncer(exporter))
-	otel.SetTracerProvider(tp)
-	t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
-
-	ctx, span := tp.Tracer("test").Start(context.Background(), "get")
-	defer span.End()
+func TestDefaultLogFormatter_Log_passesRequestContext(t *testing.T) {
+	ctx := context.WithValue(context.Background(), testContextKey{}, "value")
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil).WithContext(ctx)
@@ -63,26 +56,14 @@ func TestDefaultLogFormatter_Log_includesTraceFields(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	log := &recordingLogger{}
-	f := DefaultLogFormatter{}
-	f.Log(log, LogParams{
+	(&DefaultLogFormatter{}).Log(log, LogParams{
 		Ctx:          c,
 		Duration:     time.Millisecond,
 		ResponseBody: bytes.NewBuffer(nil),
 	})
 
 	require.NotEmpty(t, log.lastInfo)
-	assert.Contains(t, log.lastInfo, "trace_id")
-	assert.Contains(t, log.lastInfo, "span_id")
-	traceIDIdx := indexOf(log.lastInfo, "trace_id")
-	require.NotZero(t, traceIDIdx)
-	assert.NotEmpty(t, log.lastInfo[traceIDIdx+1])
+	assert.Equal(t, ctx, log.lastCtx)
 }
 
-func indexOf(args []any, key string) int {
-	for i := 0; i+1 < len(args); i += 2 {
-		if k, ok := args[i].(string); ok && k == key {
-			return i
-		}
-	}
-	return -1
-}
+type testContextKey struct{}
