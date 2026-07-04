@@ -39,7 +39,7 @@ func TestUploadAvatar_Execute(t *testing.T) {
 
 		idGen.EXPECT().NewID().Return("avatar-1", nil)
 		idGen.EXPECT().NewID().Return("outbox-1", nil)
-		clock.EXPECT().Now().Return(now)
+		clock.EXPECT().Now().Return(now).AnyTimes()
 		transactor.EXPECT().RunInTransaction(ctx, gomock.Any()).DoAndReturn(
 			func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
 		)
@@ -79,13 +79,15 @@ func TestUploadAvatar_Execute(t *testing.T) {
 
 	t.Run("invalidMimeType", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
+		clock := portmocks.NewMockClock(ctrl)
+		clock.EXPECT().Now().Return(now).AnyTimes()
 		uc := NewUploadAvatar(
 			portmocks.NewMockAvatarWriter(ctrl),
 			portmocks.NewMockAvatarStorage(ctrl),
 			portmocks.NewMockOutboxWriter(ctrl),
 			portmocks.NewMockTransactor(ctrl),
 			portmocks.NewMockIDGenerator(ctrl),
-			portmocks.NewMockClock(ctrl),
+			clock,
 			pkgportmocks.NewMockTracer(ctrl),
 			metricsadapter.NewNopMetrics(),
 		)
