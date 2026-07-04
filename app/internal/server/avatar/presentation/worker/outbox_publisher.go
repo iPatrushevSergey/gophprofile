@@ -50,9 +50,10 @@ func (w *OutboxPublisherWorker) Run(ctx context.Context) {
 				Name: "publish pending outbox events",
 				Kind: pkgport.SpanKindInternal,
 			})
-			if _, err := w.useCases.PublishPendingOutboxEventsUseCase().Execute(tickCtx, struct{}{}); err != nil {
+			workCtx := context.WithoutCancel(tickCtx)
+			if _, err := w.useCases.PublishPendingOutboxEventsUseCase().Execute(workCtx, struct{}{}); err != nil {
 				span.Fail(err)
-				w.log.Error(tickCtx, "publish pending outbox events failed", "error", err)
+				w.log.Error(workCtx, "publish pending outbox events failed", "error", err)
 			}
 			span.End()
 		}
