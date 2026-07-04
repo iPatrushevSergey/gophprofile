@@ -23,7 +23,7 @@ func newTestAvatarHandler(t *testing.T, uc stubAvatarUseCases) *AvatarHandler {
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	log := pkgportmocks.NewMockLogger(ctrl)
-	log.EXPECT().Error(gomock.Any(), gomock.Any()).AnyTimes()
+	log.EXPECT().Error(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	return NewAvatarHandler(uc, log)
 }
 
