@@ -18,6 +18,7 @@ type DeleteAvatar struct {
 	idGenerator  appport.IDGenerator
 	clock        appport.Clock
 	tracer       pkgport.Tracer
+	metrics      pkgport.Metrics
 }
 
 // NewDeleteAvatar returns the delete avatar use case.
@@ -29,6 +30,7 @@ func NewDeleteAvatar(
 	idGenerator appport.IDGenerator,
 	clock appport.Clock,
 	tracer pkgport.Tracer,
+	metrics pkgport.Metrics,
 ) appport.UseCase[dto.DeleteAvatarInput, struct{}] {
 	return &DeleteAvatar{
 		avatarReader: avatarReader,
@@ -38,11 +40,16 @@ func NewDeleteAvatar(
 		idGenerator:  idGenerator,
 		clock:        clock,
 		tracer:       tracer,
+		metrics:      metrics,
 	}
 }
 
 // Execute deletes an avatar.
 func (uc *DeleteAvatar) Execute(ctx context.Context, in dto.DeleteAvatarInput) (_ struct{}, err error) {
+	defer func() {
+		uc.metrics.RecordDelete(ctx, pkgport.MetricStatus(err, application.ErrBadInput))
+	}()
+
 	ctx, span := uc.tracer.Start(ctx, pkgport.SpanConfig{
 		Key:  "avatar.application.delete_avatar.execute",
 		Name: "delete avatar",
