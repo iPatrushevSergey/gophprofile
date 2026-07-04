@@ -39,7 +39,7 @@ func LoggerMiddleware(log pkgport.Logger, formatter LogFormatter) echo.Middlewar
 				var readErr error
 				requestBody, readErr = io.ReadAll(c.Request().Body)
 				if readErr != nil {
-					log.Error("failed to read request body", "error", readErr)
+					log.Error(c.Request().Context(), "failed to read request body", "error", readErr)
 					return c.NoContent(http.StatusBadRequest)
 				}
 				c.Request().Body = io.NopCloser(bytes.NewReader(requestBody))
