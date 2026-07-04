@@ -43,7 +43,8 @@ func Run() error {
 
 	// Initialize logger.
 	var _ pkgport.Logger = (*logger.ZapLogger)(nil)
-	log, err := logger.NewZapLogger(cfg.Logger)
+	var _ pkgport.Logger = (*logger.SlogLogger)(nil)
+	log, err := logger.NewLogger(cfg.Logger)
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
@@ -98,7 +99,7 @@ func Run() error {
 	tracer := oteltelemetry.NewTracer()
 
 	// Log server startup details.
-	log.Info("starting gophprofile server",
+	log.Info(context.Background(), "starting gophprofile server",
 		"address", cfg.Server.Address,
 		"database_configured", cfg.DB.Pool.URI != "",
 		"minio_configured", cfg.MinIO.Enabled(),
@@ -116,7 +117,7 @@ func Run() error {
 		return fmt.Errorf("database pool: %w", err)
 	}
 	defer pool.Close()
-	log.Info("database connected")
+	log.Info(context.Background(), "database connected")
 
 	// Initialize retry options.
 	retryOpts := []retry.RetryOption{retry.WithMaxRetries(cfg.DB.Retry.MaxRetries)}
@@ -149,7 +150,7 @@ func Run() error {
 	if err != nil {
 		return fmt.Errorf("minio avatar storage: %w", err)
 	}
-	log.Info("minio avatar storage configured", "endpoint", cfg.MinIO.Endpoint, "bucket", avatarStorage.Bucket())
+	log.Info(context.Background(), "minio avatar storage configured", "endpoint", cfg.MinIO.Endpoint, "bucket", avatarStorage.Bucket())
 	useCaseOpts = append(useCaseOpts, WithAvatarStorage(avatarStorage))
 
 	// Initialize RabbitMQ event publisher.
@@ -158,7 +159,7 @@ func Run() error {
 		return fmt.Errorf("rabbitmq event publisher: %w", err)
 	}
 	if cfg.Broker.Enabled() {
-		log.Info("rabbitmq event publisher configured", "exchange", cfg.Broker.Exchange)
+		log.Info(context.Background(), "rabbitmq event publisher configured", "exchange", cfg.Broker.Exchange)
 	}
 	useCaseOpts = append(useCaseOpts, WithEventPublisher(eventPublisher))
 
