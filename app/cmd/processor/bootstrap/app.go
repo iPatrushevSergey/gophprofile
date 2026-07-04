@@ -40,11 +40,11 @@ func (a *App) Start() {
 			a.UseCases,
 			a.Log,
 		).Run(workerCtx); err != nil && !errors.Is(err, context.Canceled) {
-			a.Log.Error("processor worker failed", "error", err)
+			a.Log.Error(workerCtx, "processor worker failed", "error", err)
 		}
 	}()
 
-	a.Log.Info("processor worker started")
+	a.Log.Info(ctx, "processor worker started")
 }
 
 // Stop stops the application.
@@ -53,7 +53,7 @@ func (a *App) Stop() error {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
 	<-quit
 
-	a.Log.Info("shutdown signal received, stopping processor...")
+	a.Log.Info(context.Background(), "shutdown signal received, stopping processor...")
 	ctx, cancel := context.WithTimeout(context.Background(), a.ShutdownTimeout)
 	defer cancel()
 
@@ -62,21 +62,21 @@ func (a *App) Stop() error {
 	select {
 	case <-a.workerDone:
 	case <-ctx.Done():
-		a.Log.Warn("processor worker shutdown timeout exceeded", "timeout", a.ShutdownTimeout)
+		a.Log.Warn(ctx, "processor worker shutdown timeout exceeded", "timeout", a.ShutdownTimeout)
 	}
 
 	if a.EventConsumer != nil {
 		if err := a.EventConsumer.Close(); err != nil {
-			a.Log.Error("close event consumer failed", "error", err)
+			a.Log.Error(ctx, "close event consumer failed", "error", err)
 		}
 	}
 
 	if a.TelemetryShutdown != nil {
 		if err := a.TelemetryShutdown(ctx); err != nil {
-			a.Log.Error("telemetry shutdown failed", "error", err)
+			a.Log.Error(ctx, "telemetry shutdown failed", "error", err)
 		}
 	}
 
-	a.Log.Info("processor stopped gracefully")
+	a.Log.Info(context.Background(), "processor stopped gracefully")
 	return nil
 }
