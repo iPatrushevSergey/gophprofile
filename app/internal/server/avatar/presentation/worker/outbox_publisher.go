@@ -34,7 +34,7 @@ func NewOutboxPublisherWorker(
 
 // Run executes the worker loop.
 func (w *OutboxPublisherWorker) Run(ctx context.Context) {
-	w.log.Info("outbox publisher worker started", "interval", w.interval)
+	w.log.Info(ctx, "outbox publisher worker started", "interval", w.interval)
 
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
@@ -42,7 +42,7 @@ func (w *OutboxPublisherWorker) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			w.log.Info("outbox publisher worker stopped")
+			w.log.Info(ctx, "outbox publisher worker stopped")
 			return
 		case <-ticker.C:
 			tickCtx, span := w.tracer.Start(ctx, pkgport.SpanConfig{
@@ -52,7 +52,7 @@ func (w *OutboxPublisherWorker) Run(ctx context.Context) {
 			})
 			if _, err := w.useCases.PublishPendingOutboxEventsUseCase().Execute(tickCtx, struct{}{}); err != nil {
 				span.Fail(err)
-				w.log.Error("publish pending outbox events failed", "error", err)
+				w.log.Error(tickCtx, "publish pending outbox events failed", "error", err)
 			}
 			span.End()
 		}
