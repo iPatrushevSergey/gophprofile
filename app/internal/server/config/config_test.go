@@ -27,7 +27,7 @@ func writeServerConfig(t *testing.T, yaml string) string {
 
 func TestFinalizeConfig_ok(t *testing.T) {
 	cfg := Config{
-		Logger:    logger.Config{Level: "info"},
+		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
 		Telemetry: Telemetry{ServiceName: "gophprofile-server", SampleRatio: 1},
 		Server: Server{
 			Address:         "localhost:8080",
@@ -65,7 +65,7 @@ func TestServer_TLSEnabled(t *testing.T) {
 
 func TestFinalizeConfig_invalidAddress(t *testing.T) {
 	cfg := Config{
-		Logger:    logger.Config{Level: "info"},
+		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
 		Telemetry: Telemetry{ServiceName: "gophprofile-server", SampleRatio: 1},
 		Server: Server{
 			Address:         "bad",
@@ -103,7 +103,7 @@ func TestServer_Validate_missingTLSFile(t *testing.T) {
 
 func TestFinalizeConfig_prodRequiresTLS(t *testing.T) {
 	cfg := Config{
-		Logger:    logger.Config{Level: "info"},
+		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
 		Telemetry: Telemetry{ServiceName: "gophprofile-server", SampleRatio: 1},
 		Server: Server{
 			Address:         "0.0.0.0:8443",
@@ -123,7 +123,7 @@ func TestFinalizeConfig_prodOK(t *testing.T) {
 	require.NoError(t, os.WriteFile(key, []byte("key"), 0o600))
 
 	cfg := Config{
-		Logger:    logger.Config{Level: "info"},
+		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
 		Telemetry: Telemetry{ServiceName: "gophprofile-server", SampleRatio: 1},
 		Server: Server{
 			Address:         "0.0.0.0:8443",
