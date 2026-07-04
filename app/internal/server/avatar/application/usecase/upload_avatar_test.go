@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	metricsadapter "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics"
 	pkgportmocks "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port/mocks"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
@@ -63,7 +64,7 @@ func TestUploadAvatar_Execute(t *testing.T) {
 			},
 		}).Return(nil)
 
-		uc := NewUploadAvatar(writer, storage, outbox, transactor, idGen, clock, tracer)
+		uc := NewUploadAvatar(writer, storage, outbox, transactor, idGen, clock, tracer, metricsadapter.NewNopMetrics())
 		out, err := uc.Execute(ctx, dto.UploadAvatarInput{
 			UserID:   "user-1",
 			FileName: "avatar.png",
@@ -86,6 +87,7 @@ func TestUploadAvatar_Execute(t *testing.T) {
 			portmocks.NewMockIDGenerator(ctrl),
 			portmocks.NewMockClock(ctrl),
 			pkgportmocks.NewMockTracer(ctrl),
+			metricsadapter.NewNopMetrics(),
 		)
 
 		_, err := uc.Execute(ctx, dto.UploadAvatarInput{
