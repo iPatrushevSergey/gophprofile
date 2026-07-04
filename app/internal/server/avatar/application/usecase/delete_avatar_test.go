@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	metricsadapter "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics"
 	pkgportmocks "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port/mocks"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/dto"
@@ -66,7 +67,7 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 			},
 		}).Return(nil)
 
-		uc := NewDeleteAvatar(reader, writer, outbox, transactor, idGen, clock, tracer)
+		uc := NewDeleteAvatar(reader, writer, outbox, transactor, idGen, clock, tracer, metricsadapter.NewNopMetrics())
 		_, err := uc.Execute(ctx, dto.DeleteAvatarInput{AvatarID: "avatar-1", RequestUserID: "user-1"})
 		require.NoError(t, err)
 	})
@@ -90,6 +91,7 @@ func TestDeleteAvatar_Execute(t *testing.T) {
 			portmocks.NewMockIDGenerator(ctrl),
 			portmocks.NewMockClock(ctrl),
 			tracer,
+			metricsadapter.NewNopMetrics(),
 		)
 		_, err := uc.Execute(ctx, dto.DeleteAvatarInput{AvatarID: "avatar-1", RequestUserID: "other-user"})
 		assert.ErrorIs(t, err, application.ErrForbidden)
