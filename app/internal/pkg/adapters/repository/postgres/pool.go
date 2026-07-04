@@ -37,25 +37,25 @@ func NewPool(ctx context.Context, cfg PoolConfig) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// PoolStatsReader reads connection pool statistics from pgxpool.
-type PoolStatsReader struct {
+// PoolStats reads connection pool statistics from pgxpool.
+type PoolStats struct {
 	pool *pgxpool.Pool
 }
 
-var _ pkgport.DBPoolStatsReader = (*PoolStatsReader)(nil)
+var _ pkgport.PoolStats = (*PoolStats)(nil)
 
-// NewPoolStatsReader creates a DB pool stats reader.
-func NewPoolStatsReader(pool *pgxpool.Pool) *PoolStatsReader {
-	return &PoolStatsReader{pool: pool}
+// NewPoolStats creates a pool statistics provider.
+func NewPoolStats(pool *pgxpool.Pool) *PoolStats {
+	return &PoolStats{pool: pool}
 }
 
 // Stats returns current pool connection statistics.
-func (r *PoolStatsReader) Stats(_ context.Context) (pkgport.DBPoolStats, error) {
-	if r.pool == nil {
+func (s *PoolStats) Stats(_ context.Context) (pkgport.DBPoolStats, error) {
+	if s.pool == nil {
 		return pkgport.DBPoolStats{}, nil
 	}
 
-	stat := r.pool.Stat()
+	stat := s.pool.Stat()
 	return pkgport.DBPoolStats{
 		TotalConns:    stat.TotalConns(),
 		IdleConns:     stat.IdleConns(),
