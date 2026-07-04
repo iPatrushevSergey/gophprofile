@@ -33,7 +33,7 @@ func NewGlobalRouter(useCases GlobalUseCases, log pkgport.Logger, cfg config.Con
 	}
 	r.Use(compression.CompressMiddleware(log, gzipCompressor))
 
-	r.Use(mwlogger.LoggerMiddleware(log, nil))
+	r.Use(mwlogger.LoggerMiddleware(log, &mwlogger.DefaultLogFormatter{}))
 
 	pprof.Register(r)
 
