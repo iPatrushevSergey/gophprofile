@@ -2,6 +2,7 @@ package prometheus
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,7 @@ func TestConfig_Validate(t *testing.T) {
 	})
 
 	t.Run("enabled requires address", func(t *testing.T) {
-		cfg := Config{Enabled: true}
+		cfg := Config{Enabled: true, CollectInterval: 15 * time.Second}
 		err := cfg.Validate()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "address is required")
@@ -35,7 +36,7 @@ func TestConfig_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := Config{Enabled: true, Address: tt.address}
+			cfg := Config{Enabled: true, Address: tt.address, CollectInterval: 15 * time.Second}
 			err := cfg.Validate()
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -45,4 +46,11 @@ func TestConfig_Validate(t *testing.T) {
 			assert.Equal(t, tt.address, cfg.Address)
 		})
 	}
+
+	t.Run("enabled requires positive collect interval", func(t *testing.T) {
+		cfg := Config{Enabled: true, Address: ":9090"}
+		err := cfg.Validate()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "collect_interval must be positive")
+	})
 }
