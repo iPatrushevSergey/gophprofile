@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	prommetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/prometheus"
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	avatarworker "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/worker"
 )
@@ -26,8 +25,6 @@ type App struct {
 
 	UseCases                       GlobalUseCases
 	Tracer                         pkgport.Tracer
-	Metrics                        *prommetrics.Metrics
-	MetricsAddress                 string
 	MetricsEnabled                 bool
 	PeriodicMetricsCollectInterval time.Duration
 	UploadGCInterval               time.Duration
@@ -35,7 +32,6 @@ type App struct {
 	cancelUploadGCWorker           context.CancelFunc
 	cancelOutboxPublisherWorker    context.CancelFunc
 	cancelPeriodicMetricsCollector context.CancelFunc
-	metricsServer                  *http.Server
 	workerWg                       sync.WaitGroup
 }
 
@@ -72,19 +68,7 @@ func (a *App) Start() {
 		}()
 	}
 
-	if a.MetricsEnabled && a.Metrics != nil {
-		metricsSrv := &http.Server{
-			Addr:    a.MetricsAddress,
-			Handler: a.Metrics.Handler(),
-		}
-		a.metricsServer = metricsSrv
-		go func() {
-			a.Log.Info(ctx, "metrics server listening", "address", metricsSrv.Addr)
-			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				a.Log.Error(ctx, "metrics server failed", "error", err)
-			}
-		}()
-
+	if a.MetricsEnabled {
 		metricsCtx, cancel := context.WithCancel(ctx)
 		a.cancelPeriodicMetricsCollector = cancel
 		a.workerWg.Add(1)
@@ -125,12 +109,6 @@ func (a *App) Stop() error {
 	if err := a.Server.Shutdown(ctx); err != nil {
 		a.Log.Error(ctx, "server shutdown failed", "error", err)
 		return err
-	}
-
-	if a.metricsServer != nil {
-		if err := a.metricsServer.Shutdown(ctx); err != nil {
-			a.Log.Error(ctx, "metrics server shutdown failed", "error", err)
-		}
 	}
 
 	if a.cancelUploadGCWorker != nil {
