@@ -10,19 +10,19 @@ import (
 )
 
 func TestNewZapLogger(t *testing.T) {
-	log, err := NewZapLogger(Config{Level: "info"})
+	log, err := NewZapLogger(Config{Level: "info", Backend: "zap"})
 	require.NoError(t, err)
 	log.Info(context.Background(), "test")
 	assert.NoError(t, log.Sync())
 }
 
 func TestNewZapLogger_invalidLevel(t *testing.T) {
-	_, err := NewZapLogger(Config{Level: "not-a-level"})
+	_, err := NewZapLogger(Config{Level: "not-a-level", Backend: "zap"})
 	assert.Error(t, err)
 }
 
 func TestZapLogger_keyValuePairs(t *testing.T) {
-	log, err := NewZapLogger(Config{Level: "debug"})
+	log, err := NewZapLogger(Config{Level: "debug", Backend: "zap"})
 	require.NoError(t, err)
 
 	ctx := context.Background()
