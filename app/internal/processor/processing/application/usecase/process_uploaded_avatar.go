@@ -19,6 +19,7 @@ type ProcessUploadedAvatar struct {
 	imageProcessor appport.ImageProcessor
 	clock          appport.Clock
 	tracer         pkgport.Tracer
+	metrics        pkgport.Metrics
 }
 
 // NewProcessUploadedAvatar returns the process uploaded avatar use case.
@@ -28,6 +29,7 @@ func NewProcessUploadedAvatar(
 	imageProcessor appport.ImageProcessor,
 	clock appport.Clock,
 	tracer pkgport.Tracer,
+	metrics pkgport.Metrics,
 ) appport.UseCase[dto.ProcessUploadedAvatarInput, struct{}] {
 	return &ProcessUploadedAvatar{
 		avatarWriter:   avatarWriter,
@@ -35,11 +37,17 @@ func NewProcessUploadedAvatar(
 		imageProcessor: imageProcessor,
 		clock:          clock,
 		tracer:         tracer,
+		metrics:        metrics,
 	}
 }
 
 // Execute processes uploaded avatar event.
 func (uc *ProcessUploadedAvatar) Execute(ctx context.Context, in dto.ProcessUploadedAvatarInput) (_ struct{}, err error) {
+	start := uc.clock.Now()
+	defer func() {
+		uc.metrics.RecordProcessing(ctx, pkgport.MetricStatus(err, application.ErrBadInput), uc.clock.Now().Sub(start))
+	}()
+
 	if in.AvatarID == "" || in.UserID == "" || in.S3Key == "" {
 		return struct{}{}, application.ErrBadInput
 	}
