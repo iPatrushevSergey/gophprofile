@@ -264,3 +264,23 @@ func (r *AvatarRepository) Ping(ctx context.Context) error {
 		return q.QueryRow(ctx, `SELECT 1`).Scan(new(int))
 	})
 }
+
+// SumCompletedStorageBytes returns total bytes for active completed avatars.
+func (r *AvatarRepository) SumCompletedStorageBytes(ctx context.Context) (int64, error) {
+	var storageBytes int64
+
+	err := r.transactor.DoWithRetry(ctx, func() error {
+		q := r.transactor.GetQuerier(ctx)
+		return q.QueryRow(ctx, `
+			SELECT COALESCE(SUM(size_bytes), 0)
+			FROM avatars
+			WHERE deleted_at IS NULL AND upload_status = $1`,
+			string(vo.UploadStatusCompleted),
+		).Scan(&storageBytes)
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return storageBytes, nil
+}
