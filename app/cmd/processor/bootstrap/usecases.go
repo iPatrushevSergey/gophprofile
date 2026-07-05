@@ -37,6 +37,7 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 		EventConsumer:  p.eventConsumer,
 		Clock:          p.clock,
 		Tracer:         p.tracer,
+		Metrics:        p.metrics,
 	})
 
 	return &globalUseCases{
@@ -75,6 +76,7 @@ type globalUseCasesParams struct {
 	eventConsumer  appport.EventConsumer
 	clock          appport.Clock
 	tracer         pkgport.Tracer
+	metrics        pkgport.Metrics
 }
 
 // validate validates the global use cases parameters.
@@ -127,4 +129,9 @@ func WithClock(c appport.Clock) apputil.Option[globalUseCasesParams] {
 // WithTracer sets the tracer.
 func WithTracer(t pkgport.Tracer) apputil.Option[globalUseCasesParams] {
 	return func(p *globalUseCasesParams) { p.tracer = t }
+}
+
+// WithMetrics sets the metrics recorder.
+func WithMetrics(m pkgport.Metrics) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.metrics = m }
 }
