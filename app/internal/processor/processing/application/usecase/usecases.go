@@ -14,6 +14,7 @@ type ProcessingUseCasesParams struct {
 	EventConsumer  appport.EventConsumer
 	Clock          appport.Clock
 	Tracer         pkgport.Tracer
+	Metrics        pkgport.Metrics
 }
 
 // ProcessingUseCases holds processing module use cases exposed to the composition root.
@@ -35,6 +36,7 @@ func NewProcessingUseCases(p ProcessingUseCasesParams) *ProcessingUseCases {
 			p.ImageProcessor,
 			p.Clock,
 			p.Tracer,
+			p.Metrics,
 		),
 		PurgeDeleted: NewPurgeDeletedAvatar(p.AvatarStorage, p.Tracer),
 	}
