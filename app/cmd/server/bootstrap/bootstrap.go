@@ -9,9 +9,13 @@ import (
 	"net/http"
 
 	"github.com/spf13/pflag"
+
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
@@ -43,36 +47,17 @@ func Run() error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Initialize logger.
-	var _ pkgport.Logger = (*logger.ZapLogger)(nil)
-	var _ pkgport.Logger = (*logger.SlogLogger)(nil)
-	log, err := logger.NewLogger(cfg.Logger)
-	if err != nil {
-		return fmt.Errorf("init logger: %w", err)
-	}
-	defer func() { _ = log.Sync() }()
-
 	// Initialize OpenTelemetry.
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	))
-
 	var telemetryShutdown func(context.Context) error
+	var otelLoggerProvider *sdklog.LoggerProvider
+	var otelServiceName string
 	if cfg.Telemetry.Enabled {
 		telCtx := context.Background()
 
-		exporterOpts := []otlptracegrpc.Option{
-			otlptracegrpc.WithEndpoint(cfg.Telemetry.OTLPEndpoint),
-		}
-		if cfg.Telemetry.OTLPInsecure {
-			exporterOpts = append(exporterOpts, otlptracegrpc.WithInsecure())
-		}
-
-		exporter, err := otlptracegrpc.New(telCtx, exporterOpts...)
-		if err != nil {
-			return fmt.Errorf("create otlp trace exporter: %w", err)
-		}
+		otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		))
 
 		res, err := resource.New(telCtx,
 			resource.WithAttributes(
@@ -85,17 +70,77 @@ func Run() error {
 			resource.WithOS(),
 		)
 		if err != nil {
-			return fmt.Errorf("create otel resource: %w", err)
+			return fmt.Errorf("init telemetry: create resource: %w", err)
+		}
+
+		traceExporterOpts := []otlptracegrpc.Option{
+			otlptracegrpc.WithEndpoint(cfg.Telemetry.OTLPEndpoint),
+		}
+		logExporterOpts := []otlploggrpc.Option{
+			otlploggrpc.WithEndpoint(cfg.Telemetry.OTLPEndpoint),
+		}
+		if cfg.Telemetry.OTLPInsecure {
+			traceExporterOpts = append(traceExporterOpts, otlptracegrpc.WithInsecure())
+			logExporterOpts = append(logExporterOpts, otlploggrpc.WithInsecure())
+		}
+
+		traceExporter, err := otlptracegrpc.New(telCtx, traceExporterOpts...)
+		if err != nil {
+			return fmt.Errorf("init telemetry: create trace exporter: %w", err)
+		}
+
+		logExporter, err := otlploggrpc.New(telCtx, logExporterOpts...)
+		if err != nil {
+			return fmt.Errorf("init telemetry: create log exporter: %w", err)
 		}
 
 		tp := sdktrace.NewTracerProvider(
-			sdktrace.WithBatcher(exporter),
+			sdktrace.WithBatcher(traceExporter),
 			sdktrace.WithResource(res),
 			sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(cfg.Telemetry.SampleRatio))),
 		)
+		lp := sdklog.NewLoggerProvider(
+			sdklog.WithResource(res),
+			sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
+		)
+
 		otel.SetTracerProvider(tp)
-		telemetryShutdown = tp.Shutdown
+		global.SetLoggerProvider(lp)
+
+		telemetryShutdown = func(ctx context.Context) error {
+			var shutdownErr error
+			if err := tp.Shutdown(ctx); err != nil {
+				shutdownErr = fmt.Errorf("shutdown tracer provider: %w", err)
+			}
+			if err := lp.Shutdown(ctx); err != nil {
+				if shutdownErr != nil {
+					return fmt.Errorf("%w; shutdown logger provider: %v", shutdownErr, err)
+				}
+				return fmt.Errorf("shutdown logger provider: %w", err)
+			}
+			return shutdownErr
+		}
+		otelLoggerProvider = lp
+		otelServiceName = cfg.Telemetry.ServiceName
 	}
+
+	// Initialize logger.
+	var _ pkgport.Logger = (*logger.ZapLogger)(nil)
+	var _ pkgport.Logger = (*logger.SlogLogger)(nil)
+
+	var log pkgport.Logger
+	switch cfg.Logger.Backend {
+	case "slog":
+		log, err = logger.NewSlogLogger(cfg.Logger, otelLoggerProvider, otelServiceName)
+	case "zap":
+		log, err = logger.NewZapLogger(cfg.Logger)
+	default:
+		return fmt.Errorf("init logger: unknown backend %q", cfg.Logger.Backend)
+	}
+	if err != nil {
+		return fmt.Errorf("init logger: %w", err)
+	}
+	defer func() { _ = log.Sync() }()
 
 	// Initialize tracer.
 	tracer := oteltelemetry.NewTracer()
