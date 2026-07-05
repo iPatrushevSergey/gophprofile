@@ -63,6 +63,83 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.64.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:16686:16686"
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./deploy/observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:8889:8889"
+    depends_on:
+      jaeger:
+        condition: service_started
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./deploy/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9092:9090"
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./deploy/observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.4.2
+    command: -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./deploy/observability/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+      jaeger:
+        condition: service_started
+    restart: unless-stopped
+
   migrate:
     build:
       context: .
@@ -95,6 +172,8 @@ services:
         condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
+      otel-collector:
+        condition: service_started
     environment:
       GOPHPROFILE_DATABASE_URI: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       GOPHPROFILE_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
@@ -103,6 +182,13 @@ services:
       GOPHPROFILE_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       GOPHPROFILE_MINIO_USE_SSL: ${GOPHPROFILE_MINIO_USE_SSL:-false}
       GOPHPROFILE_SERVER_ADDRESS: ${GOPHPROFILE_SERVER_ADDRESS:-0.0.0.0:8080}
+      GOPHPROFILE_TELEMETRY_ENABLED: "true"
+      GOPHPROFILE_TELEMETRY_OTLP_ENDPOINT: otel-collector:4317
+      GOPHPROFILE_TELEMETRY_OTLP_INSECURE: "true"
+      GOPHPROFILE_TELEMETRY_ENVIRONMENT: docker
+      GOPHPROFILE_METRICS_ENABLED: "true"
+      GOPHPROFILE_LOGGER_BACKEND: slog
+      GOPHPROFILE_LOGGER_FORMAT: json
     ports:
       - "127.0.0.1:8080:8080"
     security_opt:
@@ -125,6 +211,8 @@ services:
         condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
+      otel-collector:
+        condition: service_started
     environment:
       GOPHPROFILE_DATABASE_URI: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       GOPHPROFILE_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
@@ -132,6 +220,13 @@ services:
       GOPHPROFILE_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       GOPHPROFILE_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       GOPHPROFILE_MINIO_USE_SSL: ${GOPHPROFILE_MINIO_USE_SSL:-false}
+      GOPHPROFILE_TELEMETRY_ENABLED: "true"
+      GOPHPROFILE_TELEMETRY_OTLP_ENDPOINT: otel-collector:4317
+      GOPHPROFILE_TELEMETRY_OTLP_INSECURE: "true"
+      GOPHPROFILE_TELEMETRY_ENVIRONMENT: docker
+      GOPHPROFILE_METRICS_ENABLED: "true"
+      GOPHPROFILE_LOGGER_BACKEND: slog
+      GOPHPROFILE_LOGGER_FORMAT: json
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -143,3 +238,6 @@ volumes:
   postgres_data:
   minio_data:
   rabbitmq_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:
