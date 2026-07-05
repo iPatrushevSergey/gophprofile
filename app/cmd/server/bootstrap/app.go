@@ -85,7 +85,7 @@ func (a *App) Start() {
 			}
 		}()
 
-		infraCtx, cancel := context.WithCancel(ctx)
+		metricsCtx, cancel := context.WithCancel(ctx)
 		a.cancelPeriodicMetricsCollector = cancel
 		a.workerWg.Add(1)
 		go func() {
@@ -94,7 +94,7 @@ func (a *App) Start() {
 				a.UseCases.CollectPeriodicMetricsUseCase(),
 				a.Log,
 				a.PeriodicMetricsCollectInterval,
-			).Run(infraCtx)
+			).Run(metricsCtx)
 		}()
 	}
 
