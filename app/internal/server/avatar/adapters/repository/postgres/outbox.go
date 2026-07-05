@@ -155,3 +155,23 @@ func (r *OutboxRepository) MarkPublishing(ctx context.Context, limit int, publis
 	}
 	return events, nil
 }
+
+// CountPending returns the number of pending or publishing outbox messages.
+func (r *OutboxRepository) CountPending(ctx context.Context) (int64, error) {
+	var pending int64
+
+	err := r.transactor.DoWithRetry(ctx, func() error {
+		q := r.transactor.GetQuerier(ctx)
+		return q.QueryRow(ctx, `
+			SELECT COUNT(*)
+			FROM avatar_outbox
+			WHERE status IN ($1, $2)`,
+			string(vo.OutboxStatusPending), string(vo.OutboxStatusPublishing),
+		).Scan(&pending)
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return pending, nil
+}
