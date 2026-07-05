@@ -55,16 +55,18 @@ make docker-up
 Compose поднимает сервисы в порядке зависимостей:
 
 1. `postgres`, `minio`, `rabbitmq` — инфраструктура (healthcheck)
-2. `minio-init` — создание бакета `gophprofile`
-3. **`migrate`** — накат SQL из `migrations/gophprofile/`
-4. `server` — HTTP API на порту **8080**
-5. `processor` — worker обработки
+2. `jaeger`, `otel-collector`, `prometheus`, `alertmanager`, `alert-webhook`, `node-exporter`, `loki`, `grafana` — observability
+3. `minio-init` — создание бакета `gophprofile`
+4. `migrate` — накат SQL из `migrations/gophprofile/`
+5. `server` — HTTP API на порту **8080**
+6. `processor` — worker обработки; метрики через OTLP → collector → Prometheus `:8889`
 
 Проверка:
 
 ```bash
 make docker-ps
 # или: docker compose ps
+make observability-smoke   # E2E: targets, upload, metrics, logs, traces
 ```
 
 Все сервисы `server` и `processor` должны быть в статусе `running`. Контейнер `migrate` — `exited (0)`.
@@ -450,6 +452,60 @@ Postgres, MinIO и RabbitMQ **обязательны** для старта proce
 SQL-файлы: [`migrations/gophprofile/`](migrations/gophprofile/).
 
 > **После новых SQL-файлов** контейнер `migrate` при `docker compose up` **не перезапускается** автоматически, если уже завершился успешно. Выполните `make docker-migrate` или `make migrate` вручную.
+
+---
+
+## Трассировка
+
+Для ручной телеметрии используем стабильный instrumentation key:
+
+```text
+<module>.<layer>.<component>.<operation>
+```
+
+Ключ пишется в атрибут `gophprofile.telemetry.key` и нужен как единая точка адресации для span-ов и будущего selective disable.
+
+### Правила
+
+- `module` — бизнес-модуль: `avatar`, `processing`
+- `layer` — слой CA: `presentation`, `application`, `domain`, `adapter`
+- `component` — имя Go-файла без `.go` (`outbox_publisher.go` → `outbox_publisher`)
+- `operation` — имя **Go-метода**, в котором создаётся span, в `snake_case` (`ReceiveMessages` → `receive_messages`, `PublishAvatarUploaded` → `publish_avatar_uploaded`);
+  - исключение: если span в общем entrypoint (`Execute`, `Run`, `Handle`) — имя use case или логического действия (`publish_pending_outbox_events`, `process_uploaded_avatar`).
+
+Где смотреть при добавлении span: `module` и `layer` — из пакета/пути; `component` — имя файла без `.go`; `operation` — метод, в теле которого вызывается `tracer.Start`. Существующие ключи — `grep` по `Key:` в репозитории или примеры ниже.
+
+## Метрики
+
+Метрики экспортируются через OTLP в **otel-collector**, который отдаёт их Prometheus на `:8889`. Имена series совпадают с прежними (`avatars_uploads_total`, `http_server_requests_total`, …); label `job` берётся из `service.name` (`gophprofile-server`, `gophprofile-processor`).
+
+| Сервис | Что пишется |
+|--------|-------------|
+| **server** | HTTP RED, upload/delete, `avatars_storage_bytes`, `outbox_pending_messages`, pool (`db_pool_connections_*`) |
+| **processor** | processing (`avatars_processing_*`), pool (`db_pool_connections_*`) |
+
+В PromQL указывайте `job="gophprofile-server"` или `job="gophprofile-processor"`, чтобы брать series нужного процесса.
+
+## Docker Compose
+
+`make docker-up` поднимает полный стек наблюдаемости вместе с приложением. Конфиги — [`deploy/observability/`](deploy/observability/):
+
+| UI | URL | Назначение |
+|----|-----|------------|
+| **Grafana** | http://127.0.0.1:3000 | дашборды (метрики + логи + трейсы) |
+| **Jaeger** | http://127.0.0.1:16686 | трассировка |
+| **Prometheus** | http://127.0.0.1:9092 | сбор метрик, алертинг |
+| **Alertmanager** | http://127.0.0.1:9093 | алертинг |
+| **Alert webhook** | http://127.0.0.1:5001 | приём webhook от Alertmanager (логи в `docker compose logs alert-webhook`) |
+| **RabbitMQ metrics** | http://127.0.0.1:15692/metrics | метрики RabbitMQ |
+| **Node exporter** | http://127.0.0.1:9100/metrics | метрики хоста Docker |
+
+**Проверка стека:**
+
+```bash
+make docker-up
+make observability-smoke
+```
 
 ---
 
