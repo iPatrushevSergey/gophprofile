@@ -12,6 +12,8 @@ import (
 
 	serverbootstrap "github.com/iPatrushevSergey/gophprofile/app/cmd/server/bootstrap"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
+	metricsadapter "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics"
+	prommetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/prometheus"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
 	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
@@ -58,6 +60,7 @@ func NewTestServer(t *testing.T) *TestServer {
 		serverbootstrap.WithAvatarStorage(avatarStorage),
 		serverbootstrap.WithEventPublisher(eventPublisher),
 		serverbootstrap.WithTracer(oteltelemetry.NewTracer()),
+		serverbootstrap.WithMetrics(metricsadapter.NewNopMetrics()),
 		serverbootstrap.WithIDGenerator(avatargenerator.NewIDGenerator()),
 		serverbootstrap.WithClock(avatarclock.NewRealClock()),
 		serverbootstrap.WithLogger(log),
@@ -68,7 +71,8 @@ func NewTestServer(t *testing.T) *TestServer {
 
 	router, err := serverbootstrap.NewGlobalRouter(useCases, log, config.Config{
 		Telemetry: config.Telemetry{ServiceName: "gophprofile-server"},
-	})
+		Metrics:   prommetrics.Config{Enabled: false},
+	}, nil)
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(router)
