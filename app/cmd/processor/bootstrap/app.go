@@ -3,13 +3,16 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
+	prommetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/prometheus"
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
-	appport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
+	processingappport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 	processingworker "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/presentation/worker"
 )
 
@@ -19,10 +22,16 @@ type App struct {
 	TelemetryShutdown func(context.Context) error
 	ShutdownTimeout   time.Duration
 
-	UseCases                    GlobalUseCases
-	EventConsumer               appport.EventConsumer
-	cancelAvatarProcessorWorker context.CancelFunc
-	workerDone                  chan struct{}
+	UseCases                       GlobalUseCases
+	EventConsumer                  processingappport.EventConsumer
+	Metrics                        *prommetrics.Metrics
+	MetricsAddress                 string
+	MetricsEnabled                 bool
+	PeriodicMetricsCollectInterval time.Duration
+	cancelAvatarProcessorWorker    context.CancelFunc
+	cancelPeriodicMetricsCollector context.CancelFunc
+	metricsServer                  *http.Server
+	workerWg                       sync.WaitGroup
 }
 
 // Start starts the application.
@@ -31,10 +40,9 @@ func (a *App) Start() {
 
 	workerCtx, cancel := context.WithCancel(ctx)
 	a.cancelAvatarProcessorWorker = cancel
-	a.workerDone = make(chan struct{})
-
+	a.workerWg.Add(1)
 	go func() {
-		defer close(a.workerDone)
+		defer a.workerWg.Done()
 
 		if err := processingworker.NewAvatarProcessorWorker(
 			a.UseCases,
@@ -43,6 +51,32 @@ func (a *App) Start() {
 			a.Log.Error(workerCtx, "processor worker failed", "error", err)
 		}
 	}()
+
+	if a.MetricsEnabled && a.Metrics != nil {
+		metricsSrv := &http.Server{
+			Addr:    a.MetricsAddress,
+			Handler: a.Metrics.Handler(),
+		}
+		a.metricsServer = metricsSrv
+		go func() {
+			a.Log.Info(ctx, "metrics server listening", "address", metricsSrv.Addr)
+			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				a.Log.Error(ctx, "metrics server failed", "error", err)
+			}
+		}()
+
+		metricsCtx, cancel := context.WithCancel(ctx)
+		a.cancelPeriodicMetricsCollector = cancel
+		a.workerWg.Add(1)
+		go func() {
+			defer a.workerWg.Done()
+			processingworker.NewPeriodicMetricsCollectorWorker(
+				a.UseCases.CollectPeriodicMetricsUseCase(),
+				a.Log,
+				a.PeriodicMetricsCollectInterval,
+			).Run(metricsCtx)
+		}()
+	}
 
 	a.Log.Info(ctx, "processor worker started")
 }
@@ -59,10 +93,24 @@ func (a *App) Stop() error {
 
 	a.cancelAvatarProcessorWorker()
 
+	if a.metricsServer != nil {
+		if err := a.metricsServer.Shutdown(ctx); err != nil {
+			a.Log.Error(ctx, "metrics server shutdown failed", "error", err)
+		}
+	}
+	if a.cancelPeriodicMetricsCollector != nil {
+		a.cancelPeriodicMetricsCollector()
+	}
+
+	workersDone := make(chan struct{})
+	go func() {
+		a.workerWg.Wait()
+		close(workersDone)
+	}()
 	select {
-	case <-a.workerDone:
+	case <-workersDone:
 	case <-ctx.Done():
-		a.Log.Warn(ctx, "processor worker shutdown timeout exceeded", "timeout", a.ShutdownTimeout)
+		a.Log.Warn(ctx, "background workers shutdown timeout exceeded", "timeout", a.ShutdownTimeout)
 	}
 
 	if a.EventConsumer != nil {
