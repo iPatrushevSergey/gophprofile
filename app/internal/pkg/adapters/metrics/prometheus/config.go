@@ -5,12 +5,14 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Config holds Prometheus metrics settings.
 type Config struct {
-	Enabled bool   `mapstructure:"enabled"`
-	Address string `mapstructure:"address"`
+	Enabled         bool          `mapstructure:"enabled"`
+	Address         string        `mapstructure:"address"`
+	CollectInterval time.Duration `mapstructure:"collect_interval"`
 }
 
 // Validate trims and checks metrics settings.
@@ -28,6 +30,9 @@ func (c *Config) Validate() error {
 	}
 	if _, err := strconv.Atoi(portStr); err != nil {
 		return fmt.Errorf("address: invalid port: %w", err)
+	}
+	if c.CollectInterval <= 0 {
+		return fmt.Errorf("collect_interval must be positive")
 	}
 	return nil
 }
