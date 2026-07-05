@@ -26,4 +26,5 @@ func TestNewProcessingUseCases_wiresUseCases(t *testing.T) {
 	assert.NotNil(t, uc.ConfirmAvatarEvent)
 	assert.NotNil(t, uc.ProcessUploaded)
 	assert.NotNil(t, uc.PurgeDeleted)
+	assert.NotNil(t, uc.CollectPeriodicMetrics)
 }
