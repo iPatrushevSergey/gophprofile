@@ -26,6 +26,7 @@ type globalUseCases struct {
 	health                     appport.UseCase[struct{}, appdto.HealthCheckOutput]
 	expireUploadingAvatars     appport.UseCase[struct{}, struct{}]
 	publishPendingOutboxEvents appport.UseCase[struct{}, struct{}]
+	collectPeriodicMetrics     appport.UseCase[struct{}, struct{}]
 }
 
 var _ avatarpresport.AvatarUseCases = (*globalUseCases)(nil)
@@ -46,6 +47,8 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 		Clock:                   p.clock,
 		Logger:                  p.logger,
 		Tracer:                  p.tracer,
+		Metrics:                 p.metrics,
+		PoolStats:               p.poolStats,
 		OutboxBatchSize:         p.outboxBatchSize,
 		OutboxPublishingTimeout: p.outboxPublishingTimeout,
 		UploadReservationTTL:    p.uploadReservationTTL,
@@ -60,6 +63,7 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 		health:                     avatarUseCases.Health,
 		expireUploadingAvatars:     avatarUseCases.ExpireUploadingAvatars,
 		publishPendingOutboxEvents: avatarUseCases.PublishPendingOutboxEvents,
+		collectPeriodicMetrics:     avatarUseCases.CollectPeriodicMetrics,
 	}
 }
 
@@ -103,6 +107,11 @@ func (f *globalUseCases) PublishPendingOutboxEventsUseCase() appport.UseCase[str
 	return f.publishPendingOutboxEvents
 }
 
+// CollectPeriodicMetricsUseCase returns the collect periodic metrics use case.
+func (f *globalUseCases) CollectPeriodicMetricsUseCase() appport.UseCase[struct{}, struct{}] {
+	return f.collectPeriodicMetrics
+}
+
 // globalUseCasesParams holds dependencies required to build global use cases.
 type globalUseCasesParams struct {
 	avatarRepo              appport.AvatarRepo
@@ -114,6 +123,8 @@ type globalUseCasesParams struct {
 	clock                   appport.Clock
 	logger                  pkgport.Logger
 	tracer                  pkgport.Tracer
+	metrics                 pkgport.Metrics
+	poolStats               pkgport.PoolStats
 	outboxBatchSize         int
 	outboxPublishingTimeout time.Duration
 	uploadReservationTTL    time.Duration
@@ -190,6 +201,16 @@ func WithLogger(l pkgport.Logger) apputil.Option[globalUseCasesParams] {
 // WithTracer sets the tracer.
 func WithTracer(t pkgport.Tracer) apputil.Option[globalUseCasesParams] {
 	return func(p *globalUseCasesParams) { p.tracer = t }
+}
+
+// WithMetrics sets the metrics recorder.
+func WithMetrics(m pkgport.Metrics) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.metrics = m }
+}
+
+// WithPoolStats sets the database pool statistics provider.
+func WithPoolStats(s pkgport.PoolStats) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.poolStats = s }
 }
 
 // WithOutboxBatchSize sets the outbox publish batch size.
