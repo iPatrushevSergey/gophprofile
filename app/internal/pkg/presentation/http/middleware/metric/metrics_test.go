@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -9,15 +10,32 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+
+	"go.opentelemetry.io/otel"
 
 	metricsadapter "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics"
-	prommetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/prometheus"
+	otelmetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/otel"
 )
 
-func TestMetricsMiddleware_recordsRequest(t *testing.T) {
-	metrics, err := prommetrics.NewMetrics()
+func newTestMetrics(t *testing.T) (*otelmetrics.Metrics, *sdkmetric.ManualReader) {
+	t.Helper()
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	otel.SetMeterProvider(mp)
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+
+	metrics, err := otelmetrics.NewMetrics()
 	require.NoError(t, err)
+	return metrics, reader
+}
+
+func TestMetricsMiddleware_recordsRequest(t *testing.T) {
+	metrics, reader := newTestMetrics(t)
 
 	e := echo.New()
 	e.Use(MetricsMiddleware(metrics))
@@ -31,17 +49,21 @@ func TestMetricsMiddleware_recordsRequest(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	families, err := metrics.Registry().Gather()
-	require.NoError(t, err)
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
 
 	var found bool
-	for _, family := range families {
-		if family.GetName() != "http_server_requests_total" {
-			continue
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != "http_server_requests" {
+				continue
+			}
+			sum, ok := m.Data.(metricdata.Sum[int64])
+			require.True(t, ok)
+			require.Len(t, sum.DataPoints, 1)
+			assert.Equal(t, int64(1), sum.DataPoints[0].Value)
+			found = true
 		}
-		require.Len(t, family.GetMetric(), 1)
-		require.Equal(t, 1.0, family.GetMetric()[0].GetCounter().GetValue())
-		found = true
 	}
 	require.True(t, found)
 }
@@ -99,22 +121,24 @@ func TestResolveStatusCode(t *testing.T) {
 }
 
 func TestRecordHTTPRequest_durationPassed(t *testing.T) {
-	metrics, err := prommetrics.NewMetrics()
-	require.NoError(t, err)
-
+	metrics, reader := newTestMetrics(t)
 	metrics.RecordHTTPRequest(t.Context(), http.MethodGet, "/test", "2xx", 250*time.Millisecond)
 
-	families, err := metrics.Registry().Gather()
-	require.NoError(t, err)
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
 
 	var found bool
-	for _, family := range families {
-		if family.GetName() != "http_server_request_duration_seconds" {
-			continue
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != "http_server_request_duration_seconds" {
+				continue
+			}
+			hist, ok := m.Data.(metricdata.Histogram[float64])
+			require.True(t, ok)
+			require.NotEmpty(t, hist.DataPoints)
+			assert.Equal(t, uint64(1), hist.DataPoints[0].Count)
+			found = true
 		}
-		require.NotEmpty(t, family.GetMetric())
-		require.Equal(t, uint64(1), family.GetMetric()[0].GetHistogram().GetSampleCount())
-		found = true
 	}
 	require.True(t, found)
 }
