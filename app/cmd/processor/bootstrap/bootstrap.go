@@ -15,6 +15,8 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
+	metricsadapter "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics"
+	prommetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/prometheus"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
 	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
@@ -96,12 +98,24 @@ func Run() error {
 	// Initialize tracer.
 	tracer := oteltelemetry.NewTracer()
 
+	// Initialize metrics.
+	var prometheusMetrics *prommetrics.Metrics
+	appMetrics := pkgport.Metrics(metricsadapter.NewNopMetrics())
+	if cfg.Metrics.Enabled {
+		prometheusMetrics, err = prommetrics.NewMetrics()
+		if err != nil {
+			return fmt.Errorf("init metrics: %w", err)
+		}
+		appMetrics = prometheusMetrics
+	}
+
 	// Log processor startup details.
 	log.Info(context.Background(), "starting gophprofile processor",
 		"database_configured", cfg.DB.Pool.URI != "",
 		"minio_configured", cfg.MinIO.Enabled(),
 		"broker_configured", cfg.Broker.Enabled(),
 		"telemetry_enabled", cfg.Telemetry.Enabled,
+		"metrics_enabled", cfg.Metrics.Enabled,
 	)
 
 	// Initialize database pool.
@@ -127,9 +141,11 @@ func Run() error {
 	// Build options for the use case factory.
 	useCaseOpts := []apputil.Option[globalUseCasesParams]{
 		WithAvatarRepo(processingpostgres.NewAvatarRepository(transactor)),
+		WithPoolStats(postgres.NewPoolStats(pool)),
 		WithClock(processingclock.NewRealClock()),
 		WithImageProcessor(imaging.NewProcessor()),
 		WithTracer(tracer),
+		WithMetrics(appMetrics),
 	}
 
 	// Initialize MinIO avatar storage.
@@ -164,11 +180,15 @@ func Run() error {
 
 	// Initialize application.
 	app := &App{
-		Log:               log,
-		TelemetryShutdown: telemetryShutdown,
-		ShutdownTimeout:   cfg.Worker.ShutdownTimeout,
-		UseCases:          useCases,
-		EventConsumer:     eventConsumer,
+		Log:                            log,
+		TelemetryShutdown:              telemetryShutdown,
+		ShutdownTimeout:                cfg.Worker.ShutdownTimeout,
+		UseCases:                       useCases,
+		EventConsumer:                  eventConsumer,
+		Metrics:                        prometheusMetrics,
+		MetricsAddress:                 cfg.Metrics.Address,
+		MetricsEnabled:                 cfg.Metrics.Enabled,
+		PeriodicMetricsCollectInterval: cfg.Metrics.CollectInterval,
 	}
 
 	// Start application.
