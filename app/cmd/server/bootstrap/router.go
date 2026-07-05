@@ -13,18 +13,22 @@ import (
 	authmw "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/auth"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/compression"
 	mwlogger "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/logger"
+	mwmetric "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/metric"
 	avatarrouter "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/http/router"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/server/config"
 )
 
 // NewGlobalRouter composes global middleware and module routers.
 // Auth middleware applies only to routes registered inside the protected group.
-func NewGlobalRouter(useCases GlobalUseCases, log pkgport.Logger, cfg config.Config) (*echo.Echo, error) {
+func NewGlobalRouter(useCases GlobalUseCases, log pkgport.Logger, cfg config.Config, metrics pkgport.Metrics) (*echo.Echo, error) {
 	r := echo.New()
 
 	r.Use(middleware.Recover())
 	if cfg.Telemetry.Enabled {
 		r.Use(otelecho.Middleware(cfg.Telemetry.ServiceName))
+	}
+	if cfg.Metrics.Enabled {
+		r.Use(mwmetric.MetricsMiddleware(metrics))
 	}
 
 	gzipCompressor, err := compression.NewGzipCompressor(gzip.DefaultCompression)
