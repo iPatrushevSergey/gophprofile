@@ -237,6 +237,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("telemetry.environment", "development")
 	v.SetDefault("metrics.enabled", true)
 	v.SetDefault("metrics.address", ":9090")
+	v.SetDefault("metrics.collect_interval", "15s")
 	v.SetDefault("database.uri", "")
 	v.SetDefault("database.max_conns", 25)
 	v.SetDefault("database.min_conns", 5)
