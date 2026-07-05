@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
-	prommetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/prometheus"
+	otelmetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/otel"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	avatarminio "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/minio"
 	avatarrmq "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/rabbitmq"
@@ -27,7 +27,7 @@ type Config struct {
 	Server    Server             `mapstructure:"server"`
 	Logger    logger.Config      `mapstructure:"logger"`
 	Telemetry Telemetry          `mapstructure:"telemetry"`
-	Metrics   prommetrics.Config `mapstructure:"metrics"`
+	Metrics   otelmetrics.Config `mapstructure:"metrics"`
 	DB        postgres.Config    `mapstructure:"database"`
 	MinIO     avatarminio.Config `mapstructure:"minio"`
 	Broker    avatarrmq.Config   `mapstructure:"broker"`
@@ -236,7 +236,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("telemetry.sample_ratio", 1.0)
 	v.SetDefault("telemetry.environment", "development")
 	v.SetDefault("metrics.enabled", true)
-	v.SetDefault("metrics.address", ":9090")
 	v.SetDefault("metrics.collect_interval", "15s")
 	v.SetDefault("database.uri", "")
 	v.SetDefault("database.max_conns", 25)
