@@ -17,6 +17,8 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
+	metricsadapter "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics"
+	prommetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/prometheus"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
 	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
@@ -98,6 +100,17 @@ func Run() error {
 	// Initialize tracer.
 	tracer := oteltelemetry.NewTracer()
 
+	// Initialize metrics.
+	var prometheusMetrics *prommetrics.Metrics
+	appMetrics := pkgport.Metrics(metricsadapter.NewNopMetrics())
+	if cfg.Metrics.Enabled {
+		prometheusMetrics, err = prommetrics.NewMetrics()
+		if err != nil {
+			return fmt.Errorf("init metrics: %w", err)
+		}
+		appMetrics = prometheusMetrics
+	}
+
 	// Log server startup details.
 	log.Info(context.Background(), "starting gophprofile server",
 		"address", cfg.Server.Address,
@@ -106,6 +119,7 @@ func Run() error {
 		"broker_configured", cfg.Broker.Enabled(),
 		"tls_configured", cfg.Server.TLSEnabled(),
 		"telemetry_enabled", cfg.Telemetry.Enabled,
+		"metrics_enabled", cfg.Metrics.Enabled,
 	)
 
 	// Initialize database pool.
@@ -133,7 +147,9 @@ func Run() error {
 		WithTransactor(transactor),
 		WithAvatarRepo(avatarpostgres.NewAvatarRepository(transactor)),
 		WithOutboxRepo(avatarpostgres.NewOutboxRepository(transactor)),
+		WithPoolStats(postgres.NewPoolStats(pool)),
 		WithTracer(tracer),
+		WithMetrics(appMetrics),
 		WithIDGenerator(avatargenerator.NewIDGenerator()),
 		WithClock(avatarclock.NewRealClock()),
 		WithLogger(log),
@@ -167,7 +183,7 @@ func Run() error {
 	useCases := NewGlobalUseCases(useCaseOpts...)
 
 	// Initialize router.
-	router, err := NewGlobalRouter(useCases, log, cfg)
+	router, err := NewGlobalRouter(useCases, log, cfg, appMetrics)
 	if err != nil {
 		return fmt.Errorf("router: %w", err)
 	}
@@ -189,14 +205,18 @@ func Run() error {
 
 	// Initialize application.
 	app := &App{
-		Server:            srv,
-		Log:               log,
-		TelemetryShutdown: telemetryShutdown,
-		ShutdownTimeout:   cfg.Server.ShutdownTimeout,
-		TLSCertFile:       cert,
-		TLSKeyFile:        key,
-		UseCases:          useCases,
-		Tracer:            tracer,
+		Server:                         srv,
+		Log:                            log,
+		TelemetryShutdown:              telemetryShutdown,
+		ShutdownTimeout:                cfg.Server.ShutdownTimeout,
+		TLSCertFile:                    cert,
+		TLSKeyFile:                     key,
+		UseCases:                       useCases,
+		Tracer:                         tracer,
+		Metrics:                        prometheusMetrics,
+		MetricsAddress:                 cfg.Metrics.Address,
+		MetricsEnabled:                 cfg.Metrics.Enabled,
+		PeriodicMetricsCollectInterval: cfg.Metrics.CollectInterval,
 	}
 	if cfg.MinIO.Enabled() {
 		app.UploadGCInterval = cfg.MinIO.UploadGCInterval
