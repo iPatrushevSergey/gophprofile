@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	prommetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/prometheus"
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	avatarworker "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/worker"
 )
@@ -23,13 +24,19 @@ type App struct {
 	TLSCertFile       string
 	TLSKeyFile        string
 
-	UseCases                    GlobalUseCases
-	Tracer                      pkgport.Tracer
-	UploadGCInterval            time.Duration
-	OutboxPublishInterval       time.Duration
-	cancelUploadGCWorker        context.CancelFunc
-	cancelOutboxPublisherWorker context.CancelFunc
-	workerWg                    sync.WaitGroup
+	UseCases                       GlobalUseCases
+	Tracer                         pkgport.Tracer
+	Metrics                        *prommetrics.Metrics
+	MetricsAddress                 string
+	MetricsEnabled                 bool
+	PeriodicMetricsCollectInterval time.Duration
+	UploadGCInterval               time.Duration
+	OutboxPublishInterval          time.Duration
+	cancelUploadGCWorker           context.CancelFunc
+	cancelOutboxPublisherWorker    context.CancelFunc
+	cancelPeriodicMetricsCollector context.CancelFunc
+	metricsServer                  *http.Server
+	workerWg                       sync.WaitGroup
 }
 
 // Start starts the application.
@@ -65,6 +72,32 @@ func (a *App) Start() {
 		}()
 	}
 
+	if a.MetricsEnabled && a.Metrics != nil {
+		metricsSrv := &http.Server{
+			Addr:    a.MetricsAddress,
+			Handler: a.Metrics.Handler(),
+		}
+		a.metricsServer = metricsSrv
+		go func() {
+			a.Log.Info(ctx, "metrics server listening", "address", metricsSrv.Addr)
+			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				a.Log.Error(ctx, "metrics server failed", "error", err)
+			}
+		}()
+
+		infraCtx, cancel := context.WithCancel(ctx)
+		a.cancelPeriodicMetricsCollector = cancel
+		a.workerWg.Add(1)
+		go func() {
+			defer a.workerWg.Done()
+			avatarworker.NewPeriodicMetricsCollectorWorker(
+				a.UseCases.CollectPeriodicMetricsUseCase(),
+				a.Log,
+				a.PeriodicMetricsCollectInterval,
+			).Run(infraCtx)
+		}()
+	}
+
 	go func() {
 		a.Log.Info(ctx, "server listening", "address", a.Server.Addr, "tls", a.TLSCertFile != "")
 		var err error
@@ -94,11 +127,20 @@ func (a *App) Stop() error {
 		return err
 	}
 
+	if a.metricsServer != nil {
+		if err := a.metricsServer.Shutdown(ctx); err != nil {
+			a.Log.Error(ctx, "metrics server shutdown failed", "error", err)
+		}
+	}
+
 	if a.cancelUploadGCWorker != nil {
 		a.cancelUploadGCWorker()
 	}
 	if a.cancelOutboxPublisherWorker != nil {
 		a.cancelOutboxPublisherWorker()
+	}
+	if a.cancelPeriodicMetricsCollector != nil {
+		a.cancelPeriodicMetricsCollector()
 	}
 
 	workersDone := make(chan struct{})
