@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
+	prommetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/prometheus"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	processingbroker "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq"
 	processingminio "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/repository/minio"
@@ -24,6 +25,7 @@ import (
 type Config struct {
 	Logger    logger.Config           `mapstructure:"logger"`
 	Telemetry Telemetry               `mapstructure:"telemetry"`
+	Metrics   prommetrics.Config      `mapstructure:"metrics"`
 	DB        postgres.Config         `mapstructure:"database"`
 	MinIO     processingminio.Config  `mapstructure:"minio"`
 	Broker    processingbroker.Config `mapstructure:"broker"`
@@ -189,6 +191,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("telemetry.otlp_insecure", true)
 	v.SetDefault("telemetry.sample_ratio", 1.0)
 	v.SetDefault("telemetry.environment", "development")
+	v.SetDefault("metrics.enabled", true)
+	v.SetDefault("metrics.address", ":9091")
 	v.SetDefault("worker.shutdown_timeout", "10s")
 	v.SetDefault("database.uri", "")
 	v.SetDefault("database.max_conns", 10)
@@ -268,6 +272,10 @@ func finalizeConfig(cfg *Config, configPath string) error {
 
 	if err := cfg.Telemetry.Validate(); err != nil {
 		return fmt.Errorf("telemetry: %w", err)
+	}
+
+	if err := cfg.Metrics.Validate(); err != nil {
+		return fmt.Errorf("metrics: %w", err)
 	}
 
 	if err := cfg.DB.Validate(); err != nil {
