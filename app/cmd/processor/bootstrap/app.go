@@ -3,14 +3,12 @@ package bootstrap
 import (
 	"context"
 	"errors"
-	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 
-	prommetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/prometheus"
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	processingappport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 	processingworker "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/presentation/worker"
@@ -24,13 +22,10 @@ type App struct {
 
 	UseCases                       GlobalUseCases
 	EventConsumer                  processingappport.EventConsumer
-	Metrics                        *prommetrics.Metrics
-	MetricsAddress                 string
 	MetricsEnabled                 bool
 	PeriodicMetricsCollectInterval time.Duration
 	cancelAvatarProcessorWorker    context.CancelFunc
 	cancelPeriodicMetricsCollector context.CancelFunc
-	metricsServer                  *http.Server
 	workerWg                       sync.WaitGroup
 }
 
@@ -52,19 +47,7 @@ func (a *App) Start() {
 		}
 	}()
 
-	if a.MetricsEnabled && a.Metrics != nil {
-		metricsSrv := &http.Server{
-			Addr:    a.MetricsAddress,
-			Handler: a.Metrics.Handler(),
-		}
-		a.metricsServer = metricsSrv
-		go func() {
-			a.Log.Info(ctx, "metrics server listening", "address", metricsSrv.Addr)
-			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				a.Log.Error(ctx, "metrics server failed", "error", err)
-			}
-		}()
-
+	if a.MetricsEnabled {
 		metricsCtx, cancel := context.WithCancel(ctx)
 		a.cancelPeriodicMetricsCollector = cancel
 		a.workerWg.Add(1)
@@ -93,11 +76,6 @@ func (a *App) Stop() error {
 
 	a.cancelAvatarProcessorWorker()
 
-	if a.metricsServer != nil {
-		if err := a.metricsServer.Shutdown(ctx); err != nil {
-			a.Log.Error(ctx, "metrics server shutdown failed", "error", err)
-		}
-	}
 	if a.cancelPeriodicMetricsCollector != nil {
 		a.cancelPeriodicMetricsCollector()
 	}
