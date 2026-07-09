@@ -120,6 +120,8 @@ func parseSlogLevel(level string) (slog.Leveler, error) {
 		return slog.LevelInfo, nil
 	case "warn":
 		return slog.LevelWarn, nil
+	// NOTE: "fatal" is mapped to slog.LevelError intentionally.
+	// Unlike zap.Fatal, our slog adapter does not terminate the process.
 	case "error", "dpanic", "panic", "fatal":
 		return slog.LevelError, nil
 	default:
