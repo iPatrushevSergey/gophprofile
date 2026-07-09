@@ -274,6 +274,10 @@ func finalizeConfig(cfg *Config, configPath string) error {
 		return fmt.Errorf("telemetry: %w", err)
 	}
 
+	if cfg.Telemetry.Enabled && cfg.Logger.Backend == "zap" {
+		return fmt.Errorf("logger: backend %q does not support OTLP log export; use slog", cfg.Logger.Backend)
+	}
+
 	if err := cfg.Metrics.Validate(); err != nil {
 		return fmt.Errorf("metrics: %w", err)
 	}
