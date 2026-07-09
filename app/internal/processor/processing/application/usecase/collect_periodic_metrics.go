@@ -31,7 +31,7 @@ func (uc *CollectPeriodicMetrics) Execute(ctx context.Context, _ struct{}) (stru
 	if err != nil {
 		return struct{}{}, fmt.Errorf("read db pool stats: %w", err)
 	}
-	uc.metrics.ObserveDBPool(stats)
+	uc.metrics.ObserveDBPool(ctx, stats)
 
 	return struct{}{}, nil
 }
