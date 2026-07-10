@@ -1,0 +1,82 @@
+imagePullPolicy: Always
+
+externalSecrets:
+  enabled: true
+
+postgres:
+  storage: 10Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+minio:
+  storage: 20Gi
+
+rabbitmq:
+  storage: 10Gi
+
+server:
+  replicas: 3
+  image:
+    tag: SET_VIA_CI
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+  env:
+    minioUseSSL: "true"
+    telemetryEnvironment: production
+
+processor:
+  replicas: 2
+  image:
+    tag: SET_VIA_CI
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+  env:
+    minioUseSSL: "true"
+    telemetryEnvironment: production
+
+ingress:
+  enabled: true
+  className: nginx
+  host: gophprofile.example.com
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    enabled: true
+    secretName: gophprofile-tls
+
+networkPolicy:
+  enabled: true
+  ingressControllerNamespace: ingress-nginx
+
+observability:
+  prometheus:
+    storage: 20Gi
+  loki:
+    storage: 20Gi
+
+serviceMonitor:
+  enabled: true
