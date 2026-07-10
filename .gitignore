@@ -26,6 +26,7 @@ go.work.sum
 
 # env file
 .env
+.env.vault
 
 # Helm chart configs (synced via: make helm-sync-configs)
 deploy/helm/gophprofile/configs/*
