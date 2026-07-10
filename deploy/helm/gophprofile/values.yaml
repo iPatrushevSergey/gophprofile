@@ -1,0 +1,190 @@
+nameOverride: ""
+fullnameOverride: ""
+
+namespace:
+  create: true
+  name: gophprofile
+
+imagePullPolicy: IfNotPresent
+
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+serviceAccount:
+  create: true
+  name: ""
+  automountServiceAccountToken: false
+
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  storage: 1Gi
+  storageClassName: ""
+  user: gophprofile
+  password: ""
+  database: gophprofile
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+minio:
+  enabled: true
+  image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+  mcImage: minio/mc:latest
+  bucket: gophprofile
+  rootUser: ""
+  rootPassword: ""
+  storage: 1Gi
+  storageClassName: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+rabbitmq:
+  enabled: true
+  image: rabbitmq:3.13-management-alpine
+  user: gophprofile
+  password: ""
+  storage: 1Gi
+  storageClassName: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+migrate:
+  image:
+    repository: gophprofile-migrate
+    tag: latest
+
+server:
+  enabled: true
+  replicas: 1
+  image:
+    repository: gophprofile-server
+    tag: latest
+  service:
+    port: 80
+    targetPort: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  probes:
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 20
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+  terminationGracePeriodSeconds: 30
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  env:
+    minioUseSSL: "false"
+    serverAddress: "0.0.0.0:8080"
+    telemetryEnabled: "true"
+    telemetryEnvironment: ""
+    metricsEnabled: "true"
+    loggerBackend: slog
+    loggerFormat: json
+
+processor:
+  enabled: true
+  replicas: 1
+  image:
+    repository: gophprofile-processor
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  terminationGracePeriodSeconds: 45
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  env:
+    minioUseSSL: "false"
+    telemetryEnabled: "true"
+    telemetryEnvironment: ""
+    metricsEnabled: "true"
+    loggerBackend: slog
+    loggerFormat: json
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  annotations: {}
+  proxyBodySize: 10m
+  tls:
+    enabled: false
+    secretName: ""
+
+networkPolicy:
+  enabled: false
+  ingressControllerNamespace: kube-system
+
+observability:
+  enabled: true
+  otelCollector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+  jaeger:
+    image: jaegertracing/all-in-one:1.64.0
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    storage: 1Gi
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+  alertWebhook:
+    image: ealen/echo-server:0.9.2
+  nodeExporter:
+    image: prom/node-exporter:v1.9.0
+  loki:
+    image: grafana/loki:3.4.2
+    storage: 1Gi
+  grafana:
+    image: grafana/grafana:11.5.2
+    adminUser: admin
+    adminPassword: ""
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+
+externalSecrets:
+  enabled: false
+  refreshInterval: 1h
+  clusterSecretStore: vault-backend
+  vault:
+    paths:
+      postgres: gophprofile/postgres
+      minio: gophprofile/minio
+      rabbitmq: gophprofile/rabbitmq
+      grafana: gophprofile/grafana
