@@ -1,0 +1,18 @@
+# Needed only for helm-install-prod (values-prod.yaml + externalSecrets).
+# Not used for helm-install-dev. Real production: external HA Vault.
+global:
+  enabled: true
+
+injector:
+  enabled: false
+
+server:
+  dev:
+    enabled: true
+  standalone:
+    enabled: true
+  dataStorage:
+    enabled: false
+
+ui:
+  enabled: true
