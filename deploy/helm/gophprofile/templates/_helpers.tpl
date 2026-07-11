@@ -154,3 +154,19 @@ Component-only settings use server.env / processor.env in values.
 - name: GOPHPROFILE_TELEMETRY_OTLP_INSECURE
   value: "true"
 {{- end }}
+
+{{/*
+PGPASSWORD env for wait-migrate init container (psql auth).
+*/}}
+{{- define "gophprofile.postgresPasswordEnv" -}}
+{{- if .Values.externalSecrets.enabled }}
+- name: PGPASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "gophprofile.fullname" . }}-postgres
+      key: POSTGRES_PASSWORD
+{{- else }}
+- name: PGPASSWORD
+  value: {{ .Values.postgres.password | quote }}
+{{- end }}
+{{- end }}
