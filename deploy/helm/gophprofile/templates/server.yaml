@@ -1,0 +1,112 @@
+{{- if .Values.server.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "gophprofile.fullname" . }}-server
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: {{ .Values.server.service.port }}
+      targetPort: {{ .Values.server.service.targetPort }}
+  selector:
+    {{- include "gophprofile.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gophprofile.fullname" . }}-server
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+spec:
+  replicas: {{ .Values.server.replicas }}
+  selector:
+    matchLabels:
+      {{- include "gophprofile.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: server
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: server
+    spec:
+      serviceAccountName: {{ include "gophprofile.serviceAccountName" . }}
+      terminationGracePeriodSeconds: {{ .Values.server.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- include "gophprofile.podSecurityContext" .Values.securityContext | nindent 8 }}
+      initContainers:
+        - name: wait-postgres
+          image: {{ .Values.postgres.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until pg_isready -h {{ include "gophprofile.fullname" . }}-postgres -U {{ .Values.postgres.user }} -d {{ .Values.postgres.database }}; do
+                sleep 2
+              done
+        - name: wait-migrate
+          image: {{ .Values.postgres.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            {{- include "gophprofile.postgresPasswordEnv" . | nindent 12 }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until psql -h {{ include "gophprofile.fullname" . }}-postgres -U {{ .Values.postgres.user }} -d {{ .Values.postgres.database }} -c "SELECT 1 FROM goose_db_version LIMIT 1" >/dev/null 2>&1; do
+                sleep 2
+              done
+      containers:
+        - name: server
+          image: "{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          securityContext:
+            {{- include "gophprofile.containerSecurityContext" . | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.server.service.targetPort }}
+          env:
+            {{- include "gophprofile.containerEnv" . | nindent 12 }}
+            - name: GOPHPROFILE_MINIO_USE_SSL
+              value: {{ .Values.server.env.minioUseSSL | quote }}
+            - name: GOPHPROFILE_SERVER_ADDRESS
+              value: {{ .Values.server.env.serverAddress | quote }}
+            - name: GOPHPROFILE_TELEMETRY_ENABLED
+              value: {{ .Values.server.env.telemetryEnabled | quote }}
+            - name: GOPHPROFILE_TELEMETRY_ENVIRONMENT
+              value: {{ .Values.server.env.telemetryEnvironment | quote }}
+            - name: GOPHPROFILE_METRICS_ENABLED
+              value: {{ .Values.server.env.metricsEnabled | quote }}
+            - name: GOPHPROFILE_LOGGER_BACKEND
+              value: {{ .Values.server.env.loggerBackend | quote }}
+            - name: GOPHPROFILE_LOGGER_FORMAT
+              value: {{ .Values.server.env.loggerFormat | quote }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.server.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.server.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.server.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.server.probes.readiness.periodSeconds }}
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
