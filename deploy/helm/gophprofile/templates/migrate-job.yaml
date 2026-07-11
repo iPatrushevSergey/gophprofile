@@ -1,0 +1,67 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "gophprofile.fullname" . }}-migrate
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "gophprofile.serviceAccountName" . }}
+      securityContext:
+        {{- include "gophprofile.podSecurityContext" .Values.securityContext | nindent 8 }}
+      initContainers:
+        - name: wait-postgres
+          image: {{ .Values.postgres.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until pg_isready -h {{ include "gophprofile.fullname" . }}-postgres -U {{ .Values.postgres.user }} -d {{ .Values.postgres.database }}; do
+                sleep 2
+              done
+      containers:
+        - name: migrate
+          image: "{{ .Values.migrate.image.repository }}:{{ .Values.migrate.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          securityContext:
+            {{- include "gophprofile.containerSecurityContext" . | nindent 12 }}
+          {{- if .Values.externalSecrets.enabled }}
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - exec /app/migrate -d "$GOPHPROFILE_DATABASE_URI" -dir /src/migrations/gophprofile
+          env:
+            - name: GOPHPROFILE_DATABASE_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gophprofile.fullname" . }}-app
+                  key: GOPHPROFILE_DATABASE_URI
+          {{- else }}
+          args:
+            - -d
+            - {{ include "gophprofile.databaseURI" . | quote }}
+            - -dir
+            - /src/migrations/gophprofile
+          {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
