@@ -509,6 +509,60 @@ make observability-smoke
 
 ---
 
+## Kubernetes
+
+Chart: [`deploy/helm/gophprofile/`](deploy/helm/gophprofile/). Конфиги rabbitmq/observability в chart: `make helm-sync-configs`.
+
+**`values.yaml`** - дефолты chart, поверх — `-f values-dev.yaml` или `-f values-prod.yaml`.
+
+| Файл | Назначение |
+|------|------------|
+| **`values.yaml`** | Каркас chart |
+| **`values-dev.yaml`** | Rancher Desktop |
+| **`values-prod.yaml`** | ESO + Vault |
+
+| Профиль | Команда |
+|---------|---------|
+| dev | `make helm-install-dev` |
+| prod | `make helm-install-prod` |
+
+В кластере поднимаются postgres, minio, rabbitmq, server, processor, migrate job, observability (otel-collector, jaeger, prometheus, alertmanager, alert-webhook, loki, grafana, node-exporter), ingress, HPA, NetworkPolicy.
+
+### Секреты
+
+| | dev | prod |
+|--|-----|------|
+| Источник | `values-dev.yaml` | HashiCorp Vault KV |
+| Доставка | Helm → K8s Secret → env | ESO → K8s Secret → env |
+
+**Dev (Rancher Desktop)**:
+
+```bash
+make helm-install-dev          # k8s-build-images + helm-sync-configs + helm install
+kubectl get pods -n gophprofile -w
+curl http://gophprofile.local/health
+```
+
+Обновление / удаление: `make helm-upgrade-dev`, `make helm-uninstall`.
+
+**Prod** (сначала стек секретов, затем приложение):
+
+```bash
+make prod-secrets-stack        # vault-install + eso-install + vault-bootstrap
+kubectl wait -n vault --for=condition=ready pod/vault-0 --timeout=120s
+kubectl wait -n external-secrets --for=condition=ready pod -l app.kubernetes.io/name=external-secrets --timeout=120s
+
+cp deploy/vault/bootstrap/.env.vault.example .env.vault   # заполнить пароли
+make vault-port-forward        # отдельный терминал (vault-seed ходит на localhost:8200)
+make vault-seed                # Vault KV: secret/gophprofile/*
+
+make k8s-build-images          # локальный прогон; в CI — push образов с тегами из values-prod
+make helm-install-prod
+kubectl get externalsecret,secret -n gophprofile
+```
+
+---
+
 ## Тесты
 
 Пирамида: unit → contract → integration → component → e2e. Для contract, component, integration и e2e нужен **Docker** (testcontainers: Postgres + MinIO + RabbitMQ).
