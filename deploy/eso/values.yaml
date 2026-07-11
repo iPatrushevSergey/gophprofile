@@ -1,0 +1,8 @@
+# External Secrets Operator — minimal install for Vault sync.
+# Chart: https://github.com/external-secrets/external-secrets
+
+installCRDs: true
+
+serviceAccount:
+  create: true
+  name: external-secrets
