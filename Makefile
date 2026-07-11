@@ -2,6 +2,10 @@
 	build-linux-amd64 build-windows-amd64 build-darwin-amd64 \
 	certs run-server run-processor run-server-prod run-processor-prod \
 	docker-up docker-down docker-ps docker-migrate observability-smoke \
+	k8s-build-images helm-sync-configs \
+	helm-template-dev helm-template-prod helm-install-dev helm-install-prod helm-upgrade-dev helm-upgrade-prod helm-uninstall \
+	vault-install vault-uninstall vault-port-forward vault-bootstrap vault-seed \
+	eso-install eso-uninstall prod-secrets-stack \
 	test test-unit test-contract test-component test-integration test-e2e test-all \
 	cover cover-unit cover-integration migrate generate-mocks \
 	generate-easyjson generate-goverter lint
@@ -9,6 +13,18 @@
 APP_DIR := app
 BIN_DIR := $(APP_DIR)/bin
 DIST_DIR := $(BIN_DIR)/dist
+HELM_CHART := deploy/helm/gophprofile
+HELM_CONFIGS := $(HELM_CHART)/configs
+HELM_VALUES_DEV := $(HELM_CHART)/values-dev.yaml
+HELM_VALUES_PROD := $(HELM_CHART)/values-prod.yaml
+HELM_RELEASE ?= gophprofile
+HELM_NAMESPACE ?= gophprofile
+VAULT_NAMESPACE ?= vault
+VAULT_RELEASE ?= vault
+ESO_NAMESPACE ?= external-secrets
+ESO_RELEASE ?= external-secrets
+VAULT_VALUES := deploy/vault/values.yaml
+ESO_VALUES := deploy/eso/values.yaml
 
 BUILD_FLAGS := -tags=go_json
 
@@ -74,6 +90,78 @@ docker-migrate:
 
 observability-smoke:
 	bash scripts/observability-smoke.sh
+
+k8s-build-images:
+	docker build -f deploy/docker/Dockerfile.server -t gophprofile-server:latest .
+	docker build -f deploy/docker/Dockerfile.processor -t gophprofile-processor:latest .
+	docker build -f deploy/docker/Dockerfile.migrate -t gophprofile-migrate:latest .
+
+# Sync deploy/rabbitmq and deploy/observability into the Helm chart (required by .Files.Get).
+helm-sync-configs:
+	rm -rf $(HELM_CONFIGS)/rabbitmq $(HELM_CONFIGS)/observability
+	mkdir -p $(HELM_CONFIGS)/rabbitmq $(HELM_CONFIGS)/observability
+	cp -r deploy/rabbitmq/. $(HELM_CONFIGS)/rabbitmq/
+	cp -r deploy/observability/. $(HELM_CONFIGS)/observability/
+
+helm-template-dev: helm-sync-configs
+	helm template $(HELM_RELEASE) $(HELM_CHART) -f $(HELM_VALUES_DEV)
+
+helm-template-prod: helm-sync-configs
+	helm template $(HELM_RELEASE) $(HELM_CHART) -f $(HELM_VALUES_PROD)
+
+helm-install-dev: k8s-build-images helm-sync-configs
+	helm install $(HELM_RELEASE) $(HELM_CHART) \
+		-n $(HELM_NAMESPACE) --create-namespace \
+		-f $(HELM_VALUES_DEV)
+
+helm-install-prod: helm-sync-configs
+	helm install $(HELM_RELEASE) $(HELM_CHART) \
+		-n $(HELM_NAMESPACE) --create-namespace \
+		-f $(HELM_VALUES_PROD)
+
+helm-upgrade-dev: helm-sync-configs
+	helm upgrade $(HELM_RELEASE) $(HELM_CHART) \
+		-n $(HELM_NAMESPACE) \
+		-f $(HELM_VALUES_DEV)
+
+helm-upgrade-prod: helm-sync-configs
+	helm upgrade $(HELM_RELEASE) $(HELM_CHART) \
+		-n $(HELM_NAMESPACE) \
+		-f $(HELM_VALUES_PROD)
+
+helm-uninstall:
+	helm uninstall $(HELM_RELEASE) -n $(HELM_NAMESPACE)
+
+# Vault + ESO secrets stack (prod).
+vault-install:
+	helm repo add hashicorp https://helm.releases.hashicorp.com 2>/dev/null || true
+	helm upgrade --install $(VAULT_RELEASE) hashicorp/vault \
+		-n $(VAULT_NAMESPACE) --create-namespace \
+		-f $(VAULT_VALUES)
+
+vault-uninstall:
+	helm uninstall $(VAULT_RELEASE) -n $(VAULT_NAMESPACE)
+
+vault-port-forward:
+	kubectl port-forward -n $(VAULT_NAMESPACE) svc/$(VAULT_RELEASE) 8200:8200
+
+eso-install:
+	helm repo add external-secrets https://charts.external-secrets.io 2>/dev/null || true
+	helm upgrade --install $(ESO_RELEASE) external-secrets/external-secrets \
+		-n $(ESO_NAMESPACE) --create-namespace \
+		-f $(ESO_VALUES)
+
+eso-uninstall:
+	helm uninstall $(ESO_RELEASE) -n $(ESO_NAMESPACE)
+
+vault-bootstrap:
+	bash deploy/vault/bootstrap/vault-bootstrap.sh
+
+vault-seed:
+	bash deploy/vault/bootstrap/vault-seed.sh
+
+prod-secrets-stack: vault-install eso-install vault-bootstrap
+	@echo "Next: copy deploy/vault/bootstrap/.env.vault.example to .env.vault, run 'make vault-port-forward' in another terminal, then 'make vault-seed'"
 
 # Tests pyramid: unit → contract → integration → component → e2e.
 test:
