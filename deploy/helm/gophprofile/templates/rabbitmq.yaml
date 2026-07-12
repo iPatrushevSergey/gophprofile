@@ -96,9 +96,6 @@ spec:
             - name: config
               mountPath: /etc/rabbitmq/enabled_plugins
               subPath: enabled_plugins
-            - name: config
-              mountPath: /etc/rabbitmq/definitions.json
-              subPath: definitions.json
             - name: data
               mountPath: /var/lib/rabbitmq
           readinessProbe:
@@ -109,6 +106,7 @@ spec:
                 - check_port_connectivity
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 10
           resources:
             {{- toYaml .Values.rabbitmq.resources | nindent 12 }}
       volumes:
@@ -126,4 +124,64 @@ spec:
         resources:
           requests:
             storage: {{ .Values.rabbitmq.storage }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "gophprofile.fullname" . }}-rabbitmq-init
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rabbitmq-init
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-8"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rabbitmq-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: rabbitmq-init
+          image: curlimages/curl:8.5.0
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gophprofile.fullname" . }}-rabbitmq
+                  key: RABBITMQ_DEFAULT_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "gophprofile.fullname" . }}-rabbitmq
+                  key: RABBITMQ_DEFAULT_PASS
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until curl -fsS -u "${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}" \
+                "http://{{ include "gophprofile.fullname" . }}-rabbitmq:15672/api/overview" >/dev/null; do
+                sleep 2
+              done
+              curl -fsS -u "${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}" \
+                -H "Content-Type: application/json" \
+                -X POST \
+                --data-binary @/topology/definitions.json \
+                "http://{{ include "gophprofile.fullname" . }}-rabbitmq:15672/api/definitions"
+          volumeMounts:
+            - name: topology
+              mountPath: /topology
+              readOnly: true
+      volumes:
+        - name: topology
+          configMap:
+            name: {{ include "gophprofile.fullname" . }}-rabbitmq
+            items:
+              - key: definitions.json
+                path: definitions.json
 {{- end }}
