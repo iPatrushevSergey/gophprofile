@@ -52,4 +52,4 @@ observability:
     adminPassword: admin
 
 serviceMonitor:
-  enabled: true
+  enabled: false
