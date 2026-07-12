@@ -153,6 +153,8 @@ Component-only settings use server.env / processor.env in values.
   value: {{ printf "%s-otel-collector:4317" (include "gophprofile.fullname" .) | quote }}
 - name: GOPHPROFILE_TELEMETRY_OTLP_INSECURE
   value: "true"
+- name: USER
+  value: gophprofile
 {{- end }}
 
 {{/*
