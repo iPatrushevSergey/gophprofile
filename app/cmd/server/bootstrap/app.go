@@ -132,12 +132,13 @@ func (a *App) Stop() error {
 		a.Log.Warn(ctx, "background workers shutdown timeout exceeded", "timeout", a.ShutdownTimeout)
 	}
 
+	a.Log.Info(context.Background(), "server stopped gracefully")
+
 	if a.TelemetryShutdown != nil {
 		if err := a.TelemetryShutdown(ctx); err != nil {
 			a.Log.Error(ctx, "telemetry shutdown failed", "error", err)
 		}
 	}
 
-	a.Log.Info(context.Background(), "server stopped gracefully")
 	return nil
 }
