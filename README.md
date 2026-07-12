@@ -4,6 +4,65 @@
 
 ## Архитектура
 
+```mermaid
+flowchart TB
+  Client[Client]
+
+  subgraph k8s [Kubernetes]
+    Ingress[Ingress]
+
+    subgraph app [Application]
+      Server[server]
+      Processor[processor]
+    end
+
+    subgraph data [Data]
+      Postgres[(postgres)]
+      MinIO[(minio)]
+      RabbitMQ[rabbitmq]
+    end
+
+    Migrate[migrate]
+
+    subgraph obs [Observability]
+      OTEL[otel-collector]
+      Jaeger[jaeger]
+      Prometheus[prometheus]
+      Loki[loki]
+      Grafana[grafana]
+      Alertmanager[alertmanager]
+      AlertWebhook[alert-webhook]
+      NodeExporter[node-exporter]
+    end
+
+    Vault[Vault]
+    ESO[ESO]
+  end
+
+  Client --> Ingress
+  Ingress --> Server
+  Server --> Postgres
+  Server --> MinIO
+  Server --> RabbitMQ
+  RabbitMQ --> Processor
+  Processor --> Postgres
+  Processor --> MinIO
+  Server --> OTEL
+  Processor --> OTEL
+  OTEL --> Jaeger
+  OTEL --> Loki
+  OTEL --> Prometheus
+  Grafana --> Prometheus
+  Grafana --> Loki
+  Grafana --> Jaeger
+  Prometheus --> Alertmanager
+  Loki --> Alertmanager
+  Alertmanager --> AlertWebhook
+  Vault --> ESO
+  ESO -.-> Server
+  ESO -.-> Processor
+```
+
 Два сервиса — **`cmd/server`** (HTTP API) и **`cmd/processor`** (worker обработки изображений). Написаны по **Clean Architecture**: `presentation` → `application` → `domain` → `adapters`.
 
 Общая инфраструктура вынесена в **`app/internal/pkg`**, бизнес-модули не дублируют инфраструктурный код.
