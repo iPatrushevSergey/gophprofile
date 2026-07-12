@@ -97,12 +97,13 @@ func (a *App) Stop() error {
 		}
 	}
 
+	a.Log.Info(context.Background(), "processor stopped gracefully")
+
 	if a.TelemetryShutdown != nil {
 		if err := a.TelemetryShutdown(ctx); err != nil {
 			a.Log.Error(ctx, "telemetry shutdown failed", "error", err)
 		}
 	}
 
-	a.Log.Info(context.Background(), "processor stopped gracefully")
 	return nil
 }
