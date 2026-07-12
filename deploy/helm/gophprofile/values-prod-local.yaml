@@ -1,0 +1,53 @@
+# Local prod-like overlay for Rancher Desktop (Vault + ESO + Traefik).
+# Usage: make helm-install-prod-local
+
+imagePullPolicy: IfNotPresent
+
+server:
+  replicas: 2
+  image:
+    tag: latest
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+  env:
+    minioUseSSL: "false"
+
+processor:
+  replicas: 1
+  image:
+    tag: latest
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 2
+  env:
+    minioUseSSL: "false"
+
+migrate:
+  image:
+    tag: latest
+
+ingress:
+  enabled: true
+  className: traefik
+  host: gophprofile-prod.local
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  tls:
+    enabled: false
+    secretName: ""
+
+networkPolicy:
+  enabled: true
+  ingressControllerNamespace: kube-system
+
+observability:
+  prometheus:
+    storage: 2Gi
+  loki:
+    storage: 2Gi
+
+serviceMonitor:
+  enabled: false
