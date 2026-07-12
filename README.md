@@ -509,56 +509,100 @@ make observability-smoke
 
 ---
 
-## Kubernetes
+## Kubernetes (Rancher Desktop)
 
-Chart: [`deploy/helm/gophprofile/`](deploy/helm/gophprofile/). Конфиги rabbitmq/observability в chart: `make helm-sync-configs`.
+Helm chart: [`deploy/helm/gophprofile/`](deploy/helm/gophprofile/).
 
-**`values.yaml`** - дефолты chart, поверх — `-f values-dev.yaml` или `-f values-prod.yaml`.
+### Что понадобится
 
-| Файл | Назначение |
-|------|------------|
-| **`values.yaml`** | Каркас chart |
-| **`values-dev.yaml`** | Rancher Desktop |
-| **`values-prod.yaml`** | ESO + Vault |
+| Компонент | Назначение |
+|-----------|------------|
+| **Rancher Desktop** | Kubernetes + Traefik ingress |
+| **kubectl, helm, make, docker** | в PATH |
 
-| Профиль | Команда |
-|---------|---------|
-| dev | `make helm-install-dev` |
-| prod | `make helm-install-prod` |
+---
 
-В кластере поднимаются postgres, minio, rabbitmq, server, processor, migrate job, observability (otel-collector, jaeger, prometheus, alertmanager, alert-webhook, loki, grafana, node-exporter), ingress, HPA, NetworkPolicy.
+### Dev — пошагово
 
-### Секреты
-
-| | dev | prod |
-|--|-----|------|
-| Источник | `values-dev.yaml` | HashiCorp Vault KV |
-| Доставка | Helm → K8s Secret → env | ESO → K8s Secret → env |
-
-**Dev (Rancher Desktop)**:
+Секреты заданы в `values-dev.yaml`, Vault не нужен.
 
 ```bash
-make helm-install-dev          # k8s-build-images + helm-sync-configs + helm install
+# 1. Установка
+make helm-install-dev
+
+# 2. Дождаться готовности pod'ов
 kubectl get pods -n gophprofile -w
-curl http://gophprofile.local/health
+
+# 3. Smoke test
+make k8s-smoke-dev
 ```
 
-Обновление / удаление: `make helm-upgrade-dev`, `make helm-uninstall`.
-
-**Prod** (сначала стек секретов, затем приложение):
+Ручная проверка:
 
 ```bash
-make prod-secrets-stack        # vault-install + eso-install + vault-bootstrap
+curl -H "Host: gophprofile.local" http://127.0.0.1/health
+```
+
+Обновление / удаление:
+
+```bash
+make helm-upgrade-dev      # после изменений в коде/chart
+make helm-uninstall        # удалить release (PVC остаются)
+```
+
+---
+
+### Prod-local — пошагово
+
+Vault + External Secrets Operator + HPA + Traefik (без TLS).
+
+**Стек секретов** (один раз, или после `make vault-uninstall`):
+
+```bash
+# 1. Vault + ESO + bootstrap (KV, policy, K8s auth, ClusterSecretStore)
+make prod-secrets-stack
+
+# 2. Дождаться готовности
 kubectl wait -n vault --for=condition=ready pod/vault-0 --timeout=120s
-kubectl wait -n external-secrets --for=condition=ready pod -l app.kubernetes.io/name=external-secrets --timeout=120s
+kubectl wait -n external-secrets --for=condition=ready pod \
+  -l app.kubernetes.io/name=external-secrets --timeout=120s
 
-cp deploy/vault/bootstrap/.env.vault.example .env.vault   # заполнить пароли
-make vault-port-forward        # отдельный терминал (vault-seed ходит на localhost:8200)
-make vault-seed                # Vault KV: secret/gophprofile/*
+# 3. Пароли для Vault KV
+cp deploy/vault/bootstrap/.env.vault.example .env.vault
+# значения по умолчанию совпадают с dev; для prod-local менять не обязательно
 
-make k8s-build-images          # локальный прогон; в CI — push образов с тегами из values-prod
-make helm-install-prod
-kubectl get externalsecret,secret -n gophprofile
+# 4. Записать секреты в Vault
+make vault-seed
+
+# 5. Проверить ESO
+kubectl get clustersecretstore vault-backend
+```
+
+**Приложение:**
+
+```bash
+# 6. Если dev release уже стоит — сначала удалить
+make helm-uninstall
+
+# 7. Установка prod-local
+make helm-install-prod-local
+
+# 8. Дождаться pod'ов и ExternalSecret
+kubectl get pods,externalsecret -n gophprofile -w
+
+# 9. Smoke test
+make k8s-smoke-prod
+```
+
+---
+
+### Переключение dev ↔ prod-local
+
+```bash
+make helm-uninstall
+# при смене паролей RabbitMQ/Postgres — удалить PVC:
+kubectl delete pvc -n gophprofile --all
+make helm-install-dev          # или make helm-install-prod-local
 ```
 
 ---
@@ -634,6 +678,25 @@ make docker-up          # полный стек в Docker
 make docker-down        # остановить compose
 make docker-ps          # статус контейнеров
 make docker-migrate     # migrate в Docker (ручной запуск)
+make observability-smoke # E2E smoke Docker observability stack
+make k8s-build-images   # собрать server/processor/migrate образы
+make k8s-import-images  # build + import образов в Rancher Desktop k3s
+make helm-install-dev   # dev install (build + helm)
+make helm-upgrade-dev   # dev upgrade
+make helm-install-prod-local  # prod-local install на RD (Vault + ESO)
+make helm-upgrade-prod-local  # prod-local upgrade
+make helm-install-prod  # prod install (CI, образы из registry)
+make helm-upgrade-prod  # prod upgrade
+make helm-uninstall     # удалить Helm release
+make k8s-smoke-dev      # E2E smoke dev
+make k8s-smoke-prod     # E2E smoke prod-local
+make prod-secrets-stack # Vault + ESO + bootstrap
+make vault-install      # установить Vault
+make vault-uninstall    # удалить Vault
+make vault-bootstrap    # KV, policy, K8s auth, ClusterSecretStore
+make vault-seed         # записать секреты в Vault из .env.vault
+make eso-install        # установить External Secrets Operator
+make eso-uninstall      # удалить ESO
 make test               # unit-тесты (см. раздел «Тесты»)
 make test-contract      # контракт server ↔ processor
 make test-integration   # postgres/minio/rabbitmq integration
