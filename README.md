@@ -357,6 +357,8 @@ make run-processor
 
 ## REST API
 
+OpenAPI 3.0: [`api/openapi.yaml`](api/openapi.yaml).
+
 Базовый префикс: `/api/v1`. Аутентификация для защищённых маршрутов — заголовок **`X-User-ID`**.
 
 | Метод | Путь | Auth | Описание |
