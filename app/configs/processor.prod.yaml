@@ -1,0 +1,38 @@
+logger:
+  level: info
+
+database:
+  uri: ""
+  max_conns: 10
+  min_conns: 2
+  max_conn_life: "1h"
+  max_conn_idle: "30m"
+  health_check: "1m"
+  retry:
+    max_retries: 3
+    base_delay: "100ms"
+    max_delay: "2s"
+
+minio:
+  endpoint: ""
+  access_key: ""
+  secret_key: ""
+  bucket: gophprofile
+  use_ssl: true
+
+broker:
+  url: ""
+  exchange: avatars
+  queue: avatar-processing
+  dead_letter_exchange: avatars.dlx
+  dead_letter_queue: avatar-processing.dlq
+  dead_letter_routing_key: avatar-processing.dlq
+  retry_queue: avatar-processing.retry
+  retry_exchange: avatars.retry.dlx
+  retry_return_routing_key: back
+  retry_ttl: "30s"
+  max_retries: 5
+  reconnect_interval: "1s"
+
+worker:
+  shutdown_timeout: "30s"

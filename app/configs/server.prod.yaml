@@ -1,0 +1,36 @@
+server:
+  address: "0.0.0.0:8443"
+  shutdown_timeout: "10s"
+  cert_file: "certs/server.crt"
+  key_file: "certs/server.key"
+
+logger:
+  level: info
+
+database:
+  uri: ""
+  max_conns: 25
+  min_conns: 5
+  max_conn_life: "1h"
+  max_conn_idle: "30m"
+  health_check: "1m"
+  retry:
+    max_retries: 3
+    base_delay: "100ms"
+    max_delay: "2s"
+
+minio:
+  endpoint: ""
+  access_key: ""
+  secret_key: ""
+  bucket: gophprofile
+  use_ssl: true
+  upload_reservation_ttl: "30m"
+  upload_gc_interval: "5m"
+
+broker:
+  url: ""
+  exchange: avatars
+  publish_interval: "5s"
+  outbox_batch_size: 100
+  outbox_publishing_timeout: "5m"

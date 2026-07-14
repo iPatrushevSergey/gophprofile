@@ -1,0 +1,72 @@
+package usecase
+
+import (
+	"context"
+	"time"
+
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
+	appport "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/application/port"
+)
+
+// ExpireUploadingAvatars marks expired upload reservations and removes orphan objects.
+type ExpireUploadingAvatars struct {
+	avatarReader         appport.AvatarReader
+	avatarWriter         appport.AvatarWriter
+	avatarStorage        appport.AvatarStorage
+	clock                appport.Clock
+	log                  pkgport.Logger
+	uploadReservationTTL time.Duration
+}
+
+// NewExpireUploadingAvatars returns the expire uploading avatars use case.
+func NewExpireUploadingAvatars(
+	avatarReader appport.AvatarReader,
+	avatarWriter appport.AvatarWriter,
+	avatarStorage appport.AvatarStorage,
+	clock appport.Clock,
+	log pkgport.Logger,
+	uploadReservationTTL time.Duration,
+) appport.UseCase[struct{}, struct{}] {
+	return &ExpireUploadingAvatars{
+		avatarReader:         avatarReader,
+		avatarWriter:         avatarWriter,
+		avatarStorage:        avatarStorage,
+		clock:                clock,
+		log:                  log,
+		uploadReservationTTL: uploadReservationTTL,
+	}
+}
+
+// Execute marks expired upload reservations and removes orphan objects.
+func (uc *ExpireUploadingAvatars) Execute(ctx context.Context, _ struct{}) (struct{}, error) {
+	now := uc.clock.Now()
+
+	avatars, err := uc.avatarReader.ListExpiredUploading(ctx, now.Add(-uc.uploadReservationTTL))
+	if err != nil {
+		return struct{}{}, err
+	}
+
+	// If expired volume grows, switch to chunked batch delete in storage and batch MarkUploadFailed
+	// with a ListExpiredUploading limit.
+	for _, avatar := range avatars {
+		if uc.avatarStorage != nil {
+			if err := uc.avatarStorage.Delete(ctx, avatar.S3Key); err != nil {
+				uc.log.Error("expire uploading avatar: delete object failed",
+					"error", err,
+					"avatar_id", avatar.ID,
+					"s3_key", avatar.S3Key,
+				)
+				continue
+			}
+		}
+		if err := uc.avatarWriter.MarkUploadFailed(ctx, avatar.ID, now); err != nil {
+			uc.log.Error("expire uploading avatar: mark upload failed",
+				"error", err,
+				"avatar_id", avatar.ID,
+			)
+			continue
+		}
+	}
+
+	return struct{}{}, nil
+}

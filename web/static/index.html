@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GophProfile Avatars</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+  <div id="view-upload" class="container mx-auto px-4 py-8 max-w-2xl">
+    <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+      <header class="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
+        <h1 class="text-3xl font-bold text-white text-center">Avatar Upload Service</h1>
+        <p class="text-white/80 text-center mt-2">Upload your avatar image</p>
+      </header>
+
+      <main class="p-6 space-y-6">
+        <form id="uploadForm" class="space-y-4">
+          <div>
+            <label for="userId" class="block text-sm font-medium text-white mb-2">
+              User ID <span class="text-red-400">*</span>
+            </label>
+            <input type="text" id="userId" name="userId" required placeholder="Enter your user ID"
+              class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all">
+          </div>
+
+          <div>
+            <label for="image" class="block text-sm font-medium text-white mb-2">
+              Choose Image <span class="text-red-400">*</span>
+            </label>
+            <input type="file" id="image" name="image" accept="image/*" required
+              class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all">
+            <div id="imagePreview" class="mt-4 hidden">
+              <img id="previewImg" src="" alt="Preview" class="w-32 h-32 object-cover rounded-lg shadow-lg mx-auto">
+            </div>
+          </div>
+
+          <button type="submit" id="submitBtn"
+            class="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:from-purple-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]">
+            <span id="btnText">Upload Avatar</span>
+            <span id="btnLoader" class="hidden">
+              <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg"
+                fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                </path>
+              </svg>
+              Uploading...
+            </span>
+          </button>
+        </form>
+
+        <div id="uploadResponseContainer" class="hidden">
+          <div class="border-t border-white/20 pt-6 space-y-4">
+            <h2 class="text-xl font-semibold text-white">API Response</h2>
+            <div id="uploadResponseStatus" class="px-4 py-3 rounded-lg font-mono text-sm"></div>
+            <div class="bg-black/30 rounded-lg p-4 overflow-x-auto">
+              <pre id="uploadResponseJson" class="text-green-400 text-sm font-mono whitespace-pre-wrap"></pre>
+            </div>
+            <p id="uploadGalleryLink" class="hidden text-center">
+              <a href="#" id="openGalleryLink" class="text-blue-200 underline">Open gallery</a>
+            </p>
+          </div>
+        </div>
+
+        <div id="uploadErrorMessage"
+          class="hidden bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg"></div>
+      </main>
+    </div>
+  </div>
+
+  <div id="view-gallery" class="hidden container mx-auto px-4 py-8 max-w-5xl">
+    <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+      <header class="bg-gradient-to-r from-purple-600 to-blue-600 p-6">
+        <h1 class="text-3xl font-bold text-white text-center">Avatar Gallery</h1>
+        <p class="text-white/80 text-center mt-2">User: <span id="galleryUserLabel"></span></p>
+      </header>
+
+      <main class="p-6 space-y-6">
+        <div class="flex justify-between items-center gap-4">
+          <a href="#upload" class="text-blue-200 underline">Upload new avatar</a>
+          <button id="refreshBtn" type="button"
+            class="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white hover:bg-white/20">
+            Refresh
+          </button>
+        </div>
+
+        <div id="gallery" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        <div id="emptyState" class="hidden text-center text-white/70">No avatars yet.</div>
+        <div id="galleryErrorMessage"
+          class="hidden bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg"></div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const viewUpload = document.getElementById('view-upload');
+    const viewGallery = document.getElementById('view-gallery');
+
+    const form = document.getElementById('uploadForm');
+    const imageInput = document.getElementById('image');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const btnLoader = document.getElementById('btnLoader');
+    const uploadResponseContainer = document.getElementById('uploadResponseContainer');
+    const uploadResponseStatus = document.getElementById('uploadResponseStatus');
+    const uploadResponseJson = document.getElementById('uploadResponseJson');
+    const uploadErrorMessage = document.getElementById('uploadErrorMessage');
+    const uploadGalleryLink = document.getElementById('uploadGalleryLink');
+    const openGalleryLink = document.getElementById('openGalleryLink');
+
+    const galleryUserLabel = document.getElementById('galleryUserLabel');
+    const gallery = document.getElementById('gallery');
+    const emptyState = document.getElementById('emptyState');
+    const galleryErrorMessage = document.getElementById('galleryErrorMessage');
+    const refreshBtn = document.getElementById('refreshBtn');
+
+    let galleryUserId = '';
+
+    imageInput.addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          previewImg.src = event.target.result;
+          imagePreview.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+      } else {
+        imagePreview.classList.add('hidden');
+      }
+    });
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const userId = document.getElementById('userId').value.trim();
+      const imageFile = imageInput.files[0];
+
+      if (!userId || !imageFile) {
+        showUploadError('Please fill in all required fields');
+        return;
+      }
+
+      setLoading(true);
+      hideUploadError();
+      hideUploadResponse();
+
+      const formData = new FormData();
+      formData.append('file', imageFile);
+
+      try {
+        const response = await fetch('/api/v1/avatars', {
+          method: 'POST',
+          headers: { 'X-User-ID': userId },
+          body: formData
+        });
+
+        const responseData = await response.text();
+        let parsedData;
+
+        try {
+          parsedData = JSON.parse(responseData);
+        } catch {
+          parsedData = responseData;
+        }
+
+        displayUploadResponse(response, parsedData);
+
+        if (response.ok && parsedData && parsedData.id) {
+          openGalleryLink.href = `#gallery/${encodeURIComponent(userId)}`;
+          uploadGalleryLink.classList.remove('hidden');
+        }
+      } catch (error) {
+        showUploadError(`Network error: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    refreshBtn.addEventListener('click', () => loadGallery(galleryUserId));
+
+    openGalleryLink.addEventListener('click', function (e) {
+      e.preventDefault();
+      navigateToGallery(document.getElementById('userId').value.trim());
+    });
+
+    window.addEventListener('hashchange', route);
+    route();
+
+    function route() {
+      const hash = location.hash.slice(1);
+      if (hash.startsWith('gallery/')) {
+        const userId = decodeURIComponent(hash.slice('gallery/'.length));
+        showGallery(userId);
+        return;
+      }
+      showUpload();
+    }
+
+    function showUpload() {
+      viewUpload.classList.remove('hidden');
+      viewGallery.classList.add('hidden');
+      document.title = 'GophProfile — Upload';
+    }
+
+    function showGallery(userId) {
+      galleryUserId = userId;
+      galleryUserLabel.textContent = userId || 'unknown';
+      viewUpload.classList.add('hidden');
+      viewGallery.classList.remove('hidden');
+      document.title = 'GophProfile — Gallery';
+      loadGallery(userId);
+    }
+
+    function navigateToGallery(userId) {
+      if (!userId) {
+        return;
+      }
+      location.hash = `gallery/${encodeURIComponent(userId)}`;
+    }
+
+    async function loadGallery(userId) {
+      hideGalleryError();
+      gallery.innerHTML = '';
+      emptyState.classList.add('hidden');
+
+      if (!userId) {
+        showGalleryError('User ID is missing');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/v1/users/${encodeURIComponent(userId)}/avatars`);
+        const data = await response.json();
+        if (!response.ok) {
+          showGalleryError(`Failed to load gallery: HTTP ${response.status}`);
+          return;
+        }
+
+        if (!data.items || data.items.length === 0) {
+          emptyState.classList.remove('hidden');
+          return;
+        }
+
+        for (const item of data.items) {
+          gallery.appendChild(renderCard(item, userId));
+        }
+      } catch (error) {
+        showGalleryError(`Network error: ${error.message}`);
+      }
+    }
+
+    function renderCard(item, userId) {
+      const card = document.createElement('div');
+      card.className = 'bg-black/30 border border-white/10 rounded-xl p-4 space-y-3';
+
+      const img = document.createElement('img');
+      img.className = 'w-full h-48 object-cover rounded-lg bg-white/5';
+      img.alt = item.file_name || item.id;
+      img.src = previewUrl(item);
+
+      const meta = document.createElement('pre');
+      meta.className = 'text-xs text-green-300 overflow-x-auto whitespace-pre-wrap';
+      meta.textContent = JSON.stringify(item, null, 2);
+
+      const actions = document.createElement('div');
+      actions.className = 'flex gap-2';
+
+      const viewBtn = document.createElement('a');
+      viewBtn.href = `/api/v1/avatars/${item.id}`;
+      viewBtn.target = '_blank';
+      viewBtn.rel = 'noopener noreferrer';
+      viewBtn.className = 'px-3 py-2 rounded-lg bg-blue-600 text-white text-sm';
+      viewBtn.textContent = 'View original';
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'px-3 py-2 rounded-lg bg-red-600 text-white text-sm';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', () => deleteAvatar(item.id, userId));
+
+      actions.appendChild(viewBtn);
+      actions.appendChild(deleteBtn);
+
+      card.appendChild(img);
+      card.appendChild(meta);
+      card.appendChild(actions);
+      return card;
+    }
+
+    function previewUrl(item) {
+      if (item.thumbnails && item.thumbnails.length > 0) {
+        const preferred = item.thumbnails.find(t => t.size === '300x300')
+          || item.thumbnails.find(t => t.size === '100x100')
+          || item.thumbnails[0];
+        if (preferred) {
+          return preferred.url;
+        }
+      }
+      return `/api/v1/avatars/${item.id}?size=original`;
+    }
+
+    async function deleteAvatar(avatarId, userId) {
+      if (!confirm(`Delete avatar ${avatarId}?`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/v1/avatars/${avatarId}`, {
+          method: 'DELETE',
+          headers: { 'X-User-ID': userId }
+        });
+
+        if (response.status === 204) {
+          await loadGallery(userId);
+          return;
+        }
+
+        showGalleryError(`Delete failed: HTTP ${response.status}`);
+      } catch (error) {
+        showGalleryError(`Network error: ${error.message}`);
+      }
+    }
+
+    function setLoading(loading) {
+      submitBtn.disabled = loading;
+      btnText.classList.toggle('hidden', loading);
+      btnLoader.classList.toggle('hidden', !loading);
+    }
+
+    function displayUploadResponse(response, data) {
+      uploadResponseContainer.classList.remove('hidden');
+      uploadGalleryLink.classList.add('hidden');
+
+      const statusClass = response.ok
+        ? response.status === 201
+          ? 'bg-green-500/20 border border-green-500/50 text-green-200'
+          : 'bg-blue-500/20 border border-blue-500/50 text-blue-200'
+        : 'bg-red-500/20 border border-red-500/50 text-red-200';
+
+      uploadResponseStatus.className = `px-4 py-3 rounded-lg font-mono text-sm ${statusClass}`;
+      uploadResponseStatus.textContent = `HTTP ${response.status} ${response.statusText}`;
+      uploadResponseJson.textContent = typeof data === 'object'
+        ? JSON.stringify(data, null, 2)
+        : data;
+
+      if (!response.ok) {
+        showUploadError(`Request failed: ${response.status} ${response.statusText}`);
+      }
+    }
+
+    function showUploadError(message) {
+      uploadErrorMessage.textContent = message;
+      uploadErrorMessage.classList.remove('hidden');
+    }
+
+    function hideUploadError() {
+      uploadErrorMessage.classList.add('hidden');
+    }
+
+    function hideUploadResponse() {
+      uploadResponseContainer.classList.add('hidden');
+    }
+
+    function showGalleryError(message) {
+      galleryErrorMessage.textContent = message;
+      galleryErrorMessage.classList.remove('hidden');
+    }
+
+    function hideGalleryError() {
+      galleryErrorMessage.classList.add('hidden');
+    }
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,27 @@
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 go build -o /out/migrate ./app/cmd/migrate
+
+FROM alpine:3.21
+
+RUN apk add --no-cache ca-certificates \
+    && addgroup -S gophprofile \
+    && adduser -S gophprofile -G gophprofile -h /app
+
+WORKDIR /app
+
+COPY --from=builder /out/migrate /app/migrate
+COPY --from=builder /src/migrations /src/migrations
+
+RUN chown -R gophprofile:gophprofile /app /src
+
+USER gophprofile
+
+ENTRYPOINT ["/app/migrate"]

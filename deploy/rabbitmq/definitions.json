@@ -1,0 +1,118 @@
+{
+  "rabbit_version": "3.13.0",
+  "users": [
+    {
+      "name": "gophprofile",
+      "password_hash": "NtOlrZnTIn//luuHasqMGcGwKg9QidjWpTxiW6RVvqm7l4jw",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "gophprofile",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "avatars",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "avatars.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "avatars.retry.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "avatar-processing",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "avatars.dlx",
+        "x-dead-letter-routing-key": "avatar-processing.dlq"
+      }
+    },
+    {
+      "name": "avatar-processing.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "avatar-processing.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "avatars.retry.dlx",
+        "x-dead-letter-routing-key": "back"
+      }
+    }
+  ],
+  "bindings": [
+    {
+      "source": "avatars",
+      "vhost": "/",
+      "destination": "avatar-processing",
+      "destination_type": "queue",
+      "routing_key": "avatar.uploaded",
+      "arguments": {}
+    },
+    {
+      "source": "avatars",
+      "vhost": "/",
+      "destination": "avatar-processing",
+      "destination_type": "queue",
+      "routing_key": "avatar.deleted",
+      "arguments": {}
+    },
+    {
+      "source": "avatars.dlx",
+      "vhost": "/",
+      "destination": "avatar-processing.dlq",
+      "destination_type": "queue",
+      "routing_key": "avatar-processing.dlq",
+      "arguments": {}
+    },
+    {
+      "source": "avatars.retry.dlx",
+      "vhost": "/",
+      "destination": "avatar-processing",
+      "destination_type": "queue",
+      "routing_key": "back",
+      "arguments": {}
+    }
+  ]
+}
