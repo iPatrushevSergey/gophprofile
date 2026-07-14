@@ -7,20 +7,29 @@ import (
 	"github.com/labstack/echo-contrib/pprof"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 
-	zaplogger "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	authmw "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/auth"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/compression"
 	mwlogger "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/logger"
+	mwmetric "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/presentation/http/middleware/metric"
 	avatarrouter "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/presentation/http/router"
+	"github.com/iPatrushevSergey/gophprofile/app/internal/server/config"
 )
 
 // NewGlobalRouter composes global middleware and module routers.
 // Auth middleware applies only to routes registered inside the protected group.
-func NewGlobalRouter(useCases GlobalUseCases, log *zaplogger.ZapLogger) (*echo.Echo, error) {
+func NewGlobalRouter(useCases GlobalUseCases, log pkgport.Logger, cfg config.Config, metrics pkgport.Metrics) (*echo.Echo, error) {
 	r := echo.New()
 
 	r.Use(middleware.Recover())
+	if cfg.Telemetry.Enabled {
+		r.Use(otelecho.Middleware(cfg.Telemetry.ServiceName))
+	}
+	if cfg.Metrics.Enabled {
+		r.Use(mwmetric.MetricsMiddleware(metrics))
+	}
 
 	gzipCompressor, err := compression.NewGzipCompressor(gzip.DefaultCompression)
 	if err != nil {
@@ -28,7 +37,7 @@ func NewGlobalRouter(useCases GlobalUseCases, log *zaplogger.ZapLogger) (*echo.E
 	}
 	r.Use(compression.CompressMiddleware(log, gzipCompressor))
 
-	r.Use(mwlogger.LoggerMiddleware(log, nil))
+	r.Use(mwlogger.LoggerMiddleware(log, &mwlogger.DefaultLogFormatter{}))
 
 	pprof.Register(r)
 

@@ -13,6 +13,7 @@ gen() {
 
 # shared
 gen app/internal/pkg/port/logger.go app/internal/pkg/port/mocks/mock_logger.go
+gen app/internal/pkg/port/tracing.go app/internal/pkg/port/mocks/mock_tracer.go
 
 # server avatar
 gen app/internal/server/avatar/application/port/avatar_repository.go app/internal/server/avatar/application/port/mocks/mock_avatar_repository.go

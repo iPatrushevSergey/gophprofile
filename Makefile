@@ -1,7 +1,7 @@
 .PHONY: build build-server build-processor build-gencerts build-all \
 	build-linux-amd64 build-windows-amd64 build-darwin-amd64 \
 	certs run-server run-processor run-server-prod run-processor-prod \
-	docker-up docker-down docker-ps docker-migrate \
+	docker-up docker-down docker-ps docker-migrate observability-smoke \
 	test test-unit test-contract test-component test-integration test-e2e test-all \
 	cover cover-unit cover-integration migrate generate-mocks \
 	generate-easyjson generate-goverter lint
@@ -71,6 +71,9 @@ docker-ps:
 
 docker-migrate:
 	docker compose run --rm --build migrate
+
+observability-smoke:
+	bash scripts/observability-smoke.sh
 
 # Tests pyramid: unit → contract → integration → component → e2e.
 test:

@@ -12,12 +12,16 @@ import (
 
 	serverbootstrap "github.com/iPatrushevSergey/gophprofile/app/cmd/server/bootstrap"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
+	metricsadapter "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics"
+	otelmetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/otel"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
+	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/testutil"
 	avatarclock "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/clock"
 	avatargenerator "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/generator"
 	avatarpostgres "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/postgres"
+	"github.com/iPatrushevSergey/gophprofile/app/internal/server/config"
 )
 
 const (
@@ -46,7 +50,7 @@ func NewTestServer(t *testing.T) *TestServer {
 		retry.WithExponentialBackoff(50*time.Millisecond, 200*time.Millisecond),
 	)
 
-	log, err := logger.NewZapLogger(logger.Config{Level: "error"})
+	log, err := logger.NewZapLogger(logger.Config{Level: "error", Backend: "zap", Format: "json"})
 	require.NoError(t, err)
 
 	useCases := serverbootstrap.NewGlobalUseCases(
@@ -55,6 +59,8 @@ func NewTestServer(t *testing.T) *TestServer {
 		serverbootstrap.WithOutboxRepo(avatarpostgres.NewOutboxRepository(transactor)),
 		serverbootstrap.WithAvatarStorage(avatarStorage),
 		serverbootstrap.WithEventPublisher(eventPublisher),
+		serverbootstrap.WithTracer(oteltelemetry.NewTracer()),
+		serverbootstrap.WithMetrics(metricsadapter.NewNopMetrics()),
 		serverbootstrap.WithIDGenerator(avatargenerator.NewIDGenerator()),
 		serverbootstrap.WithClock(avatarclock.NewRealClock()),
 		serverbootstrap.WithLogger(log),
@@ -63,7 +69,10 @@ func NewTestServer(t *testing.T) *TestServer {
 		serverbootstrap.WithUploadReservationTTL(E2EUploadReservationTTL),
 	)
 
-	router, err := serverbootstrap.NewGlobalRouter(useCases, log)
+	router, err := serverbootstrap.NewGlobalRouter(useCases, log, config.Config{
+		Telemetry: config.Telemetry{ServiceName: "gophprofile-server"},
+		Metrics:   otelmetrics.Config{Enabled: false},
+	}, nil)
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(router)
@@ -74,5 +83,5 @@ func NewTestServer(t *testing.T) *TestServer {
 
 // APIBase returns the server base URL for HTTP clients.
 func (s *TestServer) APIBase() string {
-	return s.Server.URL
+	return s.Server.URL + "/api/v1"
 }

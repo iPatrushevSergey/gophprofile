@@ -16,4 +16,5 @@ type AvatarUseCases interface {
 	HealthUseCase() appport.UseCase[struct{}, appdto.HealthCheckOutput]
 	ExpireUploadingAvatarsUseCase() appport.UseCase[struct{}, struct{}]
 	PublishPendingOutboxEventsUseCase() appport.UseCase[struct{}, struct{}]
+	CollectPeriodicMetricsUseCase() appport.UseCase[struct{}, struct{}]
 }

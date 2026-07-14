@@ -27,7 +27,8 @@ func writeServerConfig(t *testing.T, yaml string) string {
 
 func TestFinalizeConfig_ok(t *testing.T) {
 	cfg := Config{
-		Logger: logger.Config{Level: "info"},
+		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
+		Telemetry: Telemetry{ServiceName: "gophprofile-server", SampleRatio: 1},
 		Server: Server{
 			Address:         "localhost:8080",
 			ShutdownTimeout: time.Second,
@@ -35,6 +36,25 @@ func TestFinalizeConfig_ok(t *testing.T) {
 	}
 	require.NoError(t, finalizeConfig(&cfg, "app/configs/server.yaml"))
 	assert.Equal(t, "localhost:8080", cfg.Server.Address)
+}
+
+func TestTelemetry_Validate(t *testing.T) {
+	tel := Telemetry{Enabled: true, ServiceName: "gophprofile-server", SampleRatio: 1, OTLPEndpoint: "localhost:4317"}
+	require.NoError(t, (&tel).Validate())
+
+	bad := Telemetry{ServiceName: "gophprofile-server", SampleRatio: 2}
+	assert.Error(t, bad.Validate())
+
+	trimmed := Telemetry{
+		ServiceName:  " gophprofile-server ",
+		OTLPEndpoint: " localhost:4317 ",
+		Environment:  " production ",
+		SampleRatio:  1,
+	}
+	require.NoError(t, (&trimmed).Validate())
+	assert.Equal(t, "localhost:4317", trimmed.OTLPEndpoint)
+	assert.Equal(t, "production", trimmed.Environment)
+	assert.Equal(t, "gophprofile-server", trimmed.ServiceName)
 }
 
 func TestServer_TLSEnabled(t *testing.T) {
@@ -45,7 +65,8 @@ func TestServer_TLSEnabled(t *testing.T) {
 
 func TestFinalizeConfig_invalidAddress(t *testing.T) {
 	cfg := Config{
-		Logger: logger.Config{Level: "info"},
+		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
+		Telemetry: Telemetry{ServiceName: "gophprofile-server", SampleRatio: 1},
 		Server: Server{
 			Address:         "bad",
 			ShutdownTimeout: time.Second,
@@ -82,7 +103,8 @@ func TestServer_Validate_missingTLSFile(t *testing.T) {
 
 func TestFinalizeConfig_prodRequiresTLS(t *testing.T) {
 	cfg := Config{
-		Logger: logger.Config{Level: "info"},
+		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
+		Telemetry: Telemetry{ServiceName: "gophprofile-server", SampleRatio: 1},
 		Server: Server{
 			Address:         "0.0.0.0:8443",
 			ShutdownTimeout: time.Second,
@@ -101,7 +123,8 @@ func TestFinalizeConfig_prodOK(t *testing.T) {
 	require.NoError(t, os.WriteFile(key, []byte("key"), 0o600))
 
 	cfg := Config{
-		Logger: logger.Config{Level: "info"},
+		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
+		Telemetry: Telemetry{ServiceName: "gophprofile-server", SampleRatio: 1},
 		Server: Server{
 			Address:         "0.0.0.0:8443",
 			ShutdownTimeout: time.Second,
@@ -205,6 +228,36 @@ func TestLoadConfig_viperDefaultsWithoutYAML(t *testing.T) {
 	assert.Equal(t, int32(5), cfg.DB.Pool.MinConns)
 	assert.Equal(t, "gophprofile", cfg.MinIO.Bucket)
 	assert.Equal(t, "avatars", cfg.Broker.Exchange)
+	assert.False(t, cfg.Telemetry.Enabled)
+	assert.Equal(t, "gophprofile-server", cfg.Telemetry.ServiceName)
+	assert.Equal(t, "localhost:4317", cfg.Telemetry.OTLPEndpoint)
+	assert.True(t, cfg.Telemetry.OTLPInsecure)
+	assert.Equal(t, 1.0, cfg.Telemetry.SampleRatio)
+	assert.Equal(t, "development", cfg.Telemetry.Environment)
+}
+
+func TestLoadConfig_envTelemetry(t *testing.T) {
+	path := writeServerConfig(t, `
+server:
+  address: "127.0.0.1:8080"
+  shutdown_timeout: "10s"
+telemetry:
+  enabled: false
+  sample_ratio: 1.0
+`)
+	withArgs(t, "-c", path)
+	t.Setenv("GOPHPROFILE_SERVER_ADDRESS", "")
+	t.Setenv("GOPHPROFILE_TELEMETRY_ENABLED", "true")
+	t.Setenv("GOPHPROFILE_TELEMETRY_SAMPLE_RATIO", "0.25")
+	t.Setenv("GOPHPROFILE_TELEMETRY_ENVIRONMENT", "staging")
+	t.Setenv("GOPHPROFILE_TELEMETRY_SERVICE_NAME", "gophprofile-api")
+
+	cfg, err := LoadConfig()
+	require.NoError(t, err)
+	assert.True(t, cfg.Telemetry.Enabled)
+	assert.Equal(t, 0.25, cfg.Telemetry.SampleRatio)
+	assert.Equal(t, "staging", cfg.Telemetry.Environment)
+	assert.Equal(t, "gophprofile-api", cfg.Telemetry.ServiceName)
 }
 
 func TestLoadConfig_configEnvPath(t *testing.T) {

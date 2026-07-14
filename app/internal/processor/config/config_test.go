@@ -27,11 +27,20 @@ func writeProcessorConfig(t *testing.T, yaml string) string {
 
 func TestFinalizeConfig_ok(t *testing.T) {
 	cfg := Config{
-		Logger: logger.Config{Level: "info"},
-		Worker: Worker{ShutdownTimeout: time.Second},
+		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
+		Telemetry: Telemetry{ServiceName: "gophprofile-processor", SampleRatio: 1},
+		Worker:    Worker{ShutdownTimeout: time.Second},
 	}
 	require.NoError(t, finalizeConfig(&cfg, "app/configs/processor.yaml"))
 	assert.Equal(t, time.Second, cfg.Worker.ShutdownTimeout)
+}
+
+func TestTelemetry_Validate(t *testing.T) {
+	tel := Telemetry{Enabled: true, ServiceName: "gophprofile-processor", SampleRatio: 1, OTLPEndpoint: "localhost:4317"}
+	require.NoError(t, (&tel).Validate())
+
+	bad := Telemetry{ServiceName: "gophprofile-processor", SampleRatio: 2}
+	assert.Error(t, bad.Validate())
 }
 
 func TestLoadConfig_defaultValues(t *testing.T) {
@@ -125,6 +134,12 @@ func TestLoadConfig_viperDefaultsWithoutYAML(t *testing.T) {
 	assert.Equal(t, "gophprofile", cfg.MinIO.Bucket)
 	assert.Equal(t, "avatars", cfg.Broker.Exchange)
 	assert.Equal(t, "avatar-processing", cfg.Broker.Queue)
+	assert.False(t, cfg.Telemetry.Enabled)
+	assert.Equal(t, "gophprofile-processor", cfg.Telemetry.ServiceName)
+	assert.Equal(t, "localhost:4317", cfg.Telemetry.OTLPEndpoint)
+	assert.True(t, cfg.Telemetry.OTLPInsecure)
+	assert.Equal(t, 1.0, cfg.Telemetry.SampleRatio)
+	assert.Equal(t, "development", cfg.Telemetry.Environment)
 }
 
 func TestLoadConfig_configEnvPath(t *testing.T) {

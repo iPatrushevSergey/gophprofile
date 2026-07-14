@@ -8,7 +8,7 @@ import (
 
 // EventPublisher publishes avatar lifecycle events to a message broker.
 type EventPublisher interface {
-	PublishAvatarUploaded(ctx context.Context, event dto.AvatarUploadedEvent) error
-	PublishAvatarDeleted(ctx context.Context, event dto.AvatarDeletedEvent) error
+	PublishAvatarUploaded(ctx context.Context, event dto.AvatarUploadedEvent, traceCarrier map[string]string) error
+	PublishAvatarDeleted(ctx context.Context, event dto.AvatarDeletedEvent, traceCarrier map[string]string) error
 	Ping(ctx context.Context) error
 }

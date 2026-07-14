@@ -9,6 +9,7 @@ import (
 
 	amqp091 "github.com/rabbitmq/amqp091-go"
 
+	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq/converter"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq/converter/generated"
@@ -33,9 +34,10 @@ var _ appport.EventConsumer = (*Consumer)(nil)
 
 // Consumer reads avatar lifecycle events from RabbitMQ.
 type Consumer struct {
-	cfg  Config
-	log  pkgport.Logger
-	conv converter.MessageConverter
+	cfg    Config
+	log    pkgport.Logger
+	conv   converter.MessageConverter
+	tracer pkgport.Tracer
 
 	mu              sync.Mutex
 	conn            *amqp091.Connection
@@ -45,11 +47,12 @@ type Consumer struct {
 }
 
 // NewConsumer creates a RabbitMQ event consumer.
-func NewConsumer(cfg Config, log pkgport.Logger) (*Consumer, error) {
+func NewConsumer(cfg Config, log pkgport.Logger, tracer pkgport.Tracer) (*Consumer, error) {
 	c := &Consumer{
-		cfg:  cfg,
-		log:  log,
-		conv: &generated.MessageConverterImpl{},
+		cfg:    cfg,
+		log:    log,
+		conv:   &generated.MessageConverterImpl{},
+		tracer: tracer,
 	}
 	if !cfg.Enabled() {
 		return c, nil
@@ -85,7 +88,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 
 			if err := c.ensureConsumeSession(); err != nil {
 				c.mu.Unlock()
-				c.log.Error("rabbitmq consume setup failed", "error", err)
+				c.log.Error(ctx, "rabbitmq consume setup failed", "error", err)
 				if !wait(ctx, c.cfg.ReconnectInterval) {
 					return
 				}
@@ -95,7 +98,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 			deliveries, err := c.ch.Consume(c.cfg.Queue, "", false, false, false, false, nil)
 			if err != nil {
 				c.mu.Unlock()
-				c.log.Error("rabbitmq consume failed", "error", err)
+				c.log.Error(ctx, "rabbitmq consume failed", "error", err)
 				if !wait(ctx, c.cfg.ReconnectInterval) {
 					return
 				}
@@ -110,7 +113,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 					return
 				case delivery, ok := <-deliveries:
 					if !ok {
-						c.log.Warn("rabbitmq connection lost, reconnecting")
+						c.log.Warn(ctx, "rabbitmq connection lost, reconnecting")
 						if !wait(ctx, c.cfg.ReconnectInterval) {
 							return
 						}
@@ -122,9 +125,30 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						attempt = int(count) + 1
 					}
 
-					msg, routingKey, err := c.decodeBrokerMessage(delivery)
+					msgCtx := oteltelemetry.ExtractAMQP(ctx, delivery.Headers)
+					routingKey := delivery.RoutingKey
+					if routingKey == c.cfg.RetryReturnRoutingKey {
+						if original, ok := delivery.Headers[originalRoutingKeyHeader].(string); ok && original != "" {
+							routingKey = original
+						}
+					}
+					msgCtx, receiveSpan := c.tracer.Start(msgCtx, pkgport.SpanConfig{
+						Key:  "processing.adapter.consumer.receive_messages",
+						Name: routingKey + " receive",
+						Kind: pkgport.SpanKindConsumer,
+						Attributes: []pkgport.Attribute{
+							{Key: "messaging.system", Value: "rabbitmq"},
+							{Key: "messaging.destination.name", Value: c.cfg.Queue},
+							{Key: "messaging.rabbitmq.destination.routing_key", Value: routingKey},
+							{Key: "messaging.operation.type", Value: "receive"},
+						},
+					})
+					msg, _, err := c.decodeBrokerMessage(delivery)
 					if err != nil {
-						c.log.Error("rabbitmq: skip invalid broker message",
+						receiveSpan.Fail(err)
+						receiveSpan.End()
+
+						c.log.Error(msgCtx, "rabbitmq: skip invalid broker message",
 							"error", err,
 							"routing_key", routingKey,
 						)
@@ -134,13 +158,15 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 						c.mu.Unlock()
 
 						if nackErr != nil {
-							c.log.Error("rabbitmq: nack invalid broker message failed",
+							c.log.Error(msgCtx, "rabbitmq: nack invalid broker message failed",
 								"error", nackErr,
 								"routing_key", routingKey,
 							)
 						}
 						continue
 					}
+
+					msg.Ctx = msgCtx
 
 					msg.Delivery = &messageDelivery{
 						consumer: c,
@@ -150,13 +176,16 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 
 					select {
 					case messages <- msg:
+						receiveSpan.End()
 					case <-ctx.Done():
+						receiveSpan.Fail(ctx.Err())
+						receiveSpan.End()
 						c.mu.Lock()
 						nackErr := delivery.Nack(false, true)
 						c.mu.Unlock()
 
 						if nackErr != nil {
-							c.log.Error("rabbitmq: nack on shutdown failed",
+							c.log.Error(msgCtx, "rabbitmq: nack on shutdown failed",
 								"error", nackErr,
 								"routing_key", routingKey,
 							)
@@ -171,6 +200,7 @@ func (c *Consumer) ReceiveMessages(ctx context.Context) (<-chan dto.BrokerMessag
 	return messages, nil
 }
 
+// decodeBrokerMessage decodes a broker message from a RabbitMQ delivery.
 func (c *Consumer) decodeBrokerMessage(delivery amqp091.Delivery) (dto.BrokerMessage, string, error) {
 	routingKey := delivery.RoutingKey
 	if routingKey == c.cfg.RetryReturnRoutingKey {
@@ -351,7 +381,7 @@ func (d *messageDelivery) Nack(ctx context.Context, requeue bool) error {
 	}
 
 	if d.attempt >= d.consumer.cfg.MaxRetries {
-		d.consumer.log.Warn("rabbitmq: max delivery attempts reached, sending to dlq",
+		d.consumer.log.Warn(ctx, "rabbitmq: max delivery attempts reached, sending to dlq",
 			"routing_key", d.delivery.RoutingKey,
 			"attempt", d.attempt,
 			"max_retries", d.consumer.cfg.MaxRetries,

@@ -57,14 +57,14 @@ func (uc *PublishPendingOutboxEvents) Execute(ctx context.Context, _ struct{}) (
 				AvatarID: event.AvatarID,
 				UserID:   event.UserID,
 				S3Key:    event.S3Key,
-			}); err != nil {
+			}, event.TraceCarrier); err != nil {
 				return struct{}{}, err
 			}
 		case vo.OutboxEventAvatarDeleted:
 			if err := uc.eventPublisher.PublishAvatarDeleted(ctx, dto.AvatarDeletedEvent{
 				AvatarID: event.AvatarID,
 				S3Keys:   event.S3Keys,
-			}); err != nil {
+			}, event.TraceCarrier); err != nil {
 				return struct{}{}, err
 			}
 		default:

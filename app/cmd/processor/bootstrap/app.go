@@ -5,23 +5,28 @@ import (
 	"errors"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
-	appport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
+	processingappport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 	processingworker "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/presentation/worker"
 )
 
 // App represents the application lifecycle.
 type App struct {
-	Log             pkgport.Logger
-	ShutdownTimeout time.Duration
+	Log               pkgport.Logger
+	TelemetryShutdown func(context.Context) error
+	ShutdownTimeout   time.Duration
 
-	UseCases                    GlobalUseCases
-	EventConsumer               appport.EventConsumer
-	cancelAvatarProcessorWorker context.CancelFunc
-	workerDone                  chan struct{}
+	UseCases                       GlobalUseCases
+	EventConsumer                  processingappport.EventConsumer
+	MetricsEnabled                 bool
+	PeriodicMetricsCollectInterval time.Duration
+	cancelAvatarProcessorWorker    context.CancelFunc
+	cancelPeriodicMetricsCollector context.CancelFunc
+	workerWg                       sync.WaitGroup
 }
 
 // Start starts the application.
@@ -30,20 +35,33 @@ func (a *App) Start() {
 
 	workerCtx, cancel := context.WithCancel(ctx)
 	a.cancelAvatarProcessorWorker = cancel
-	a.workerDone = make(chan struct{})
-
+	a.workerWg.Add(1)
 	go func() {
-		defer close(a.workerDone)
+		defer a.workerWg.Done()
 
 		if err := processingworker.NewAvatarProcessorWorker(
 			a.UseCases,
 			a.Log,
 		).Run(workerCtx); err != nil && !errors.Is(err, context.Canceled) {
-			a.Log.Error("processor worker failed", "error", err)
+			a.Log.Error(workerCtx, "processor worker failed", "error", err)
 		}
 	}()
 
-	a.Log.Info("processor worker started")
+	if a.MetricsEnabled {
+		metricsCtx, cancel := context.WithCancel(ctx)
+		a.cancelPeriodicMetricsCollector = cancel
+		a.workerWg.Add(1)
+		go func() {
+			defer a.workerWg.Done()
+			processingworker.NewPeriodicMetricsCollectorWorker(
+				a.UseCases.CollectPeriodicMetricsUseCase(),
+				a.Log,
+				a.PeriodicMetricsCollectInterval,
+			).Run(metricsCtx)
+		}()
+	}
+
+	a.Log.Info(ctx, "processor worker started")
 }
 
 // Stop stops the application.
@@ -52,24 +70,39 @@ func (a *App) Stop() error {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
 	<-quit
 
-	a.Log.Info("shutdown signal received, stopping processor...")
+	a.Log.Info(context.Background(), "shutdown signal received, stopping processor...")
 	ctx, cancel := context.WithTimeout(context.Background(), a.ShutdownTimeout)
 	defer cancel()
 
 	a.cancelAvatarProcessorWorker()
 
+	if a.cancelPeriodicMetricsCollector != nil {
+		a.cancelPeriodicMetricsCollector()
+	}
+
+	workersDone := make(chan struct{})
+	go func() {
+		a.workerWg.Wait()
+		close(workersDone)
+	}()
 	select {
-	case <-a.workerDone:
+	case <-workersDone:
 	case <-ctx.Done():
-		a.Log.Warn("processor worker shutdown timeout exceeded", "timeout", a.ShutdownTimeout)
+		a.Log.Warn(ctx, "background workers shutdown timeout exceeded", "timeout", a.ShutdownTimeout)
 	}
 
 	if a.EventConsumer != nil {
 		if err := a.EventConsumer.Close(); err != nil {
-			a.Log.Error("close event consumer failed", "error", err)
+			a.Log.Error(ctx, "close event consumer failed", "error", err)
 		}
 	}
 
-	a.Log.Info("processor stopped gracefully")
+	if a.TelemetryShutdown != nil {
+		if err := a.TelemetryShutdown(ctx); err != nil {
+			a.Log.Error(ctx, "telemetry shutdown failed", "error", err)
+		}
+	}
+
+	a.Log.Info(context.Background(), "processor stopped gracefully")
 	return nil
 }

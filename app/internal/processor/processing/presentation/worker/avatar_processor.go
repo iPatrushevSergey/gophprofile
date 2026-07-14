@@ -37,12 +37,13 @@ func (w *AvatarProcessorWorker) Run(ctx context.Context) error {
 		success := true
 		requeue := false
 
-		processCtx := context.WithoutCancel(ctx)
+		// Detach in-flight work from worker shutdown so processing and ack can finish.
+		workCtx := context.WithoutCancel(msg.Ctx)
 
 		switch {
 		case msg.Uploaded != nil:
 			event := msg.Uploaded
-			_, err = w.useCases.ProcessUploadedUseCase().Execute(processCtx, dto.ProcessUploadedAvatarInput{
+			_, err = w.useCases.ProcessUploadedUseCase().Execute(workCtx, dto.ProcessUploadedAvatarInput{
 				AvatarID: event.AvatarID,
 				UserID:   event.UserID,
 				S3Key:    event.S3Key,
@@ -52,21 +53,21 @@ func (w *AvatarProcessorWorker) Run(ctx context.Context) error {
 				case errors.Is(err, application.ErrAlreadyProcessed):
 					// success stays true → Ack
 				case errors.Is(err, application.ErrNotFound):
-					w.log.Error("process uploaded avatar: avatar not found",
+					w.log.Error(workCtx, "process uploaded avatar: avatar not found",
 						"error", err,
 						"avatar_id", event.AvatarID,
 						"user_id", event.UserID,
 					)
 					success = false
 				case errors.Is(err, application.ErrBadInput):
-					w.log.Error("process uploaded avatar: bad input",
+					w.log.Error(workCtx, "process uploaded avatar: bad input",
 						"error", err,
 						"avatar_id", event.AvatarID,
 						"user_id", event.UserID,
 					)
 					success = false
 				default:
-					w.log.Error("process uploaded avatar failed",
+					w.log.Error(workCtx, "process uploaded avatar failed",
 						"error", err,
 						"avatar_id", event.AvatarID,
 						"user_id", event.UserID,
@@ -77,7 +78,7 @@ func (w *AvatarProcessorWorker) Run(ctx context.Context) error {
 			}
 		case msg.Deleted != nil:
 			event := msg.Deleted
-			_, err = w.useCases.PurgeDeletedUseCase().Execute(processCtx, dto.PurgeDeletedAvatarInput{
+			_, err = w.useCases.PurgeDeletedUseCase().Execute(workCtx, dto.PurgeDeletedAvatarInput{
 				AvatarID: event.AvatarID,
 				S3Keys:   event.S3Keys,
 			})
@@ -85,12 +86,12 @@ func (w *AvatarProcessorWorker) Run(ctx context.Context) error {
 				success = false
 				switch {
 				case errors.Is(err, application.ErrBadInput):
-					w.log.Error("purge deleted avatar: bad input",
+					w.log.Error(workCtx, "purge deleted avatar: bad input",
 						"error", err,
 						"avatar_id", event.AvatarID,
 					)
 				default:
-					w.log.Error("purge deleted avatar failed",
+					w.log.Error(workCtx, "purge deleted avatar failed",
 						"error", err,
 						"avatar_id", event.AvatarID,
 					)
@@ -98,16 +99,16 @@ func (w *AvatarProcessorWorker) Run(ctx context.Context) error {
 				}
 			}
 		default:
-			w.log.Error("received broker event without payload")
+			w.log.Error(workCtx, "received broker event without payload")
 			success = false
 		}
 
-		if _, err := w.useCases.ConfirmAvatarEventUseCase().Execute(ctx, dto.ConfirmAvatarEventInput{
+		if _, err := w.useCases.ConfirmAvatarEventUseCase().Execute(workCtx, dto.ConfirmAvatarEventInput{
 			Delivery: msg.Delivery,
 			Success:  success,
 			Requeue:  requeue,
 		}); err != nil {
-			w.log.Error("confirm avatar event failed", "error", err)
+			w.log.Error(workCtx, "confirm avatar event failed", "error", err)
 		}
 	}
 

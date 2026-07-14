@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
+	otelmetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/otel"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	avatarminio "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/minio"
 	avatarrmq "github.com/iPatrushevSergey/gophprofile/app/internal/server/avatar/adapters/repository/rabbitmq"
@@ -23,11 +24,40 @@ import (
 
 // Config holds grouped server configuration.
 type Config struct {
-	Server Server             `mapstructure:"server"`
-	Logger logger.Config      `mapstructure:"logger"`
-	DB     postgres.Config    `mapstructure:"database"`
-	MinIO  avatarminio.Config `mapstructure:"minio"`
-	Broker avatarrmq.Config   `mapstructure:"broker"`
+	Server    Server             `mapstructure:"server"`
+	Logger    logger.Config      `mapstructure:"logger"`
+	Telemetry Telemetry          `mapstructure:"telemetry"`
+	Metrics   otelmetrics.Config `mapstructure:"metrics"`
+	DB        postgres.Config    `mapstructure:"database"`
+	MinIO     avatarminio.Config `mapstructure:"minio"`
+	Broker    avatarrmq.Config   `mapstructure:"broker"`
+}
+
+// Telemetry holds OpenTelemetry settings.
+type Telemetry struct {
+	Enabled      bool    `mapstructure:"enabled"`
+	ServiceName  string  `mapstructure:"service_name"`
+	OTLPEndpoint string  `mapstructure:"otlp_endpoint"`
+	OTLPInsecure bool    `mapstructure:"otlp_insecure"`
+	SampleRatio  float64 `mapstructure:"sample_ratio"`
+	Environment  string  `mapstructure:"environment"`
+}
+
+// Validate trims and checks telemetry settings.
+func (t *Telemetry) Validate() error {
+	t.ServiceName = strings.TrimSpace(t.ServiceName)
+	t.OTLPEndpoint = strings.TrimSpace(t.OTLPEndpoint)
+	t.Environment = strings.TrimSpace(t.Environment)
+
+	if t.ServiceName == "" {
+		return fmt.Errorf("service_name is required")
+	}
+
+	if t.SampleRatio < 0 || t.SampleRatio > 1 {
+		return fmt.Errorf("sample_ratio must be between 0 and 1")
+	}
+
+	return nil
 }
 
 // Server holds HTTP server settings.
@@ -197,6 +227,16 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("server.cert_file", "")
 	v.SetDefault("server.key_file", "")
 	v.SetDefault("logger.level", "info")
+	v.SetDefault("logger.backend", "slog")
+	v.SetDefault("logger.format", "json")
+	v.SetDefault("telemetry.enabled", false)
+	v.SetDefault("telemetry.service_name", "gophprofile-server")
+	v.SetDefault("telemetry.otlp_endpoint", "localhost:4317")
+	v.SetDefault("telemetry.otlp_insecure", true)
+	v.SetDefault("telemetry.sample_ratio", 1.0)
+	v.SetDefault("telemetry.environment", "development")
+	v.SetDefault("metrics.enabled", true)
+	v.SetDefault("metrics.collect_interval", "15s")
 	v.SetDefault("database.uri", "")
 	v.SetDefault("database.max_conns", 25)
 	v.SetDefault("database.min_conns", 5)
@@ -269,6 +309,14 @@ func bindFlags(v *viper.Viper, fs *pflag.FlagSet) error {
 func finalizeConfig(cfg *Config, configPath string) error {
 	if err := cfg.Logger.Validate(); err != nil {
 		return fmt.Errorf("logger: %w", err)
+	}
+
+	if err := cfg.Telemetry.Validate(); err != nil {
+		return fmt.Errorf("telemetry: %w", err)
+	}
+
+	if err := cfg.Metrics.Validate(); err != nil {
+		return fmt.Errorf("metrics: %w", err)
 	}
 
 	if err := cfg.DB.Validate(); err != nil {

@@ -13,6 +13,7 @@ import (
 type OutboxPublisherWorker struct {
 	useCases presport.AvatarUseCases
 	log      pkgport.Logger
+	tracer   pkgport.Tracer
 	interval time.Duration
 }
 
@@ -20,20 +21,20 @@ type OutboxPublisherWorker struct {
 func NewOutboxPublisherWorker(
 	useCases presport.AvatarUseCases,
 	log pkgport.Logger,
+	tracer pkgport.Tracer,
 	interval time.Duration,
 ) *OutboxPublisherWorker {
 	return &OutboxPublisherWorker{
 		useCases: useCases,
 		log:      log,
+		tracer:   tracer,
 		interval: interval,
 	}
 }
 
 // Run executes the worker loop.
 func (w *OutboxPublisherWorker) Run(ctx context.Context) {
-	uc := w.useCases.PublishPendingOutboxEventsUseCase()
-
-	w.log.Info("outbox publisher worker started", "interval", w.interval)
+	w.log.Info(ctx, "outbox publisher worker started", "interval", w.interval)
 
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
@@ -41,12 +42,20 @@ func (w *OutboxPublisherWorker) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			w.log.Info("outbox publisher worker stopped")
+			w.log.Info(ctx, "outbox publisher worker stopped")
 			return
 		case <-ticker.C:
-			if _, err := uc.Execute(ctx, struct{}{}); err != nil {
-				w.log.Error("publish pending outbox events failed", "error", err)
+			tickCtx, span := w.tracer.Start(ctx, pkgport.SpanConfig{
+				Key:  "avatar.presentation.outbox_publisher.publish_pending_outbox_events",
+				Name: "publish pending outbox events",
+				Kind: pkgport.SpanKindInternal,
+			})
+			workCtx := context.WithoutCancel(tickCtx)
+			if _, err := w.useCases.PublishPendingOutboxEventsUseCase().Execute(workCtx, struct{}{}); err != nil {
+				span.Fail(err)
+				w.log.Error(workCtx, "publish pending outbox events failed", "error", err)
 			}
+			span.End()
 		}
 	}
 }

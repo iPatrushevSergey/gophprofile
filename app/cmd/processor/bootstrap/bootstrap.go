@@ -8,9 +8,24 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/log/global"
+	"go.opentelemetry.io/otel/propagation"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
+
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/logger"
+	metricsadapter "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics"
+	otelmetrics "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics/otel"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/repository/postgres"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/retry"
+	oteltelemetry "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/telemetry/otel"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/apputil"
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/config"
@@ -32,19 +47,135 @@ func Run() error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	// Initialize OpenTelemetry.
+	var telemetryShutdown func(context.Context) error
+	var otelLoggerProvider *sdklog.LoggerProvider
+	var otelServiceName string
+	if cfg.Telemetry.Enabled {
+		telCtx := context.Background()
+
+		otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		))
+
+		res, err := resource.New(telCtx,
+			resource.WithAttributes(
+				semconv.ServiceName(cfg.Telemetry.ServiceName),
+				semconv.ServiceVersion(apputil.Version),
+				semconv.DeploymentEnvironmentName(cfg.Telemetry.Environment),
+			),
+			resource.WithFromEnv(),
+			resource.WithProcess(),
+			resource.WithOS(),
+		)
+		if err != nil {
+			return fmt.Errorf("init telemetry: create resource: %w", err)
+		}
+
+		traceExporterOpts := []otlptracegrpc.Option{
+			otlptracegrpc.WithEndpoint(cfg.Telemetry.OTLPEndpoint),
+		}
+		logExporterOpts := []otlploggrpc.Option{
+			otlploggrpc.WithEndpoint(cfg.Telemetry.OTLPEndpoint),
+		}
+		metricExporterOpts := []otlpmetricgrpc.Option{
+			otlpmetricgrpc.WithEndpoint(cfg.Telemetry.OTLPEndpoint),
+		}
+		if cfg.Telemetry.OTLPInsecure {
+			traceExporterOpts = append(traceExporterOpts, otlptracegrpc.WithInsecure())
+			logExporterOpts = append(logExporterOpts, otlploggrpc.WithInsecure())
+			metricExporterOpts = append(metricExporterOpts, otlpmetricgrpc.WithInsecure())
+		}
+
+		traceExporter, err := otlptracegrpc.New(telCtx, traceExporterOpts...)
+		if err != nil {
+			return fmt.Errorf("init telemetry: create trace exporter: %w", err)
+		}
+
+		logExporter, err := otlploggrpc.New(telCtx, logExporterOpts...)
+		if err != nil {
+			return fmt.Errorf("init telemetry: create log exporter: %w", err)
+		}
+
+		metricExporter, err := otlpmetricgrpc.New(telCtx, metricExporterOpts...)
+		if err != nil {
+			return fmt.Errorf("init telemetry: create metric exporter: %w", err)
+		}
+
+		tp := sdktrace.NewTracerProvider(
+			sdktrace.WithBatcher(traceExporter),
+			sdktrace.WithResource(res),
+			sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(cfg.Telemetry.SampleRatio))),
+		)
+		lp := sdklog.NewLoggerProvider(
+			sdklog.WithResource(res),
+			sdklog.WithProcessor(sdklog.NewBatchProcessor(logExporter)),
+		)
+		mp := sdkmetric.NewMeterProvider(
+			sdkmetric.WithResource(res),
+			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter)),
+		)
+
+		otel.SetTracerProvider(tp)
+		global.SetLoggerProvider(lp)
+		otel.SetMeterProvider(mp)
+
+		telemetryShutdown = func(ctx context.Context) error {
+			var shutdownErr error
+			if err := tp.Shutdown(ctx); err != nil {
+				shutdownErr = errors.Join(shutdownErr, fmt.Errorf("shutdown tracer provider: %w", err))
+			}
+			if err := mp.Shutdown(ctx); err != nil {
+				shutdownErr = errors.Join(shutdownErr, fmt.Errorf("shutdown meter provider: %w", err))
+			}
+			if err := lp.Shutdown(ctx); err != nil {
+				shutdownErr = errors.Join(shutdownErr, fmt.Errorf("shutdown logger provider: %w", err))
+			}
+			return shutdownErr
+		}
+		otelLoggerProvider = lp
+		otelServiceName = cfg.Telemetry.ServiceName
+	}
+
 	// Initialize logger.
 	var _ pkgport.Logger = (*logger.ZapLogger)(nil)
-	log, err := logger.NewZapLogger(cfg.Logger)
+	var _ pkgport.Logger = (*logger.SlogLogger)(nil)
+
+	var log pkgport.Logger
+	switch cfg.Logger.Backend {
+	case "slog":
+		log, err = logger.NewSlogLogger(cfg.Logger, otelLoggerProvider, otelServiceName)
+	case "zap":
+		log, err = logger.NewZapLogger(cfg.Logger)
+	default:
+		return fmt.Errorf("init logger: unknown backend %q", cfg.Logger.Backend)
+	}
 	if err != nil {
 		return fmt.Errorf("init logger: %w", err)
 	}
 	defer func() { _ = log.Sync() }()
 
+	// Initialize tracer.
+	tracer := oteltelemetry.NewTracer()
+
+	// Initialize metrics.
+	appMetrics := pkgport.Metrics(metricsadapter.NewNopMetrics())
+	if cfg.Metrics.Enabled {
+		otelAppMetrics, err := otelmetrics.NewMetrics()
+		if err != nil {
+			return fmt.Errorf("init metrics: %w", err)
+		}
+		appMetrics = otelAppMetrics
+	}
+
 	// Log processor startup details.
-	log.Info("starting gophprofile processor",
+	log.Info(context.Background(), "starting gophprofile processor",
 		"database_configured", cfg.DB.Pool.URI != "",
 		"minio_configured", cfg.MinIO.Enabled(),
 		"broker_configured", cfg.Broker.Enabled(),
+		"telemetry_enabled", cfg.Telemetry.Enabled,
+		"metrics_enabled", cfg.Metrics.Enabled,
 	)
 
 	// Initialize database pool.
@@ -56,7 +187,7 @@ func Run() error {
 		return fmt.Errorf("database pool: %w", err)
 	}
 	defer pool.Close()
-	log.Info("database connected")
+	log.Info(context.Background(), "database connected")
 
 	// Initialize retry options.
 	retryOpts := []retry.RetryOption{retry.WithMaxRetries(cfg.DB.Retry.MaxRetries)}
@@ -70,8 +201,11 @@ func Run() error {
 	// Build options for the use case factory.
 	useCaseOpts := []apputil.Option[globalUseCasesParams]{
 		WithAvatarRepo(processingpostgres.NewAvatarRepository(transactor)),
+		WithPoolStats(postgres.NewPoolStats(pool)),
 		WithClock(processingclock.NewRealClock()),
 		WithImageProcessor(imaging.NewProcessor()),
+		WithTracer(tracer),
+		WithMetrics(appMetrics),
 	}
 
 	// Initialize MinIO avatar storage.
@@ -82,18 +216,18 @@ func Run() error {
 	if err != nil {
 		return fmt.Errorf("minio avatar storage: %w", err)
 	}
-	log.Info("minio avatar storage configured", "endpoint", cfg.MinIO.Endpoint, "bucket", cfg.MinIO.Bucket)
+	log.Info(context.Background(), "minio avatar storage configured", "endpoint", cfg.MinIO.Endpoint, "bucket", cfg.MinIO.Bucket)
 	useCaseOpts = append(useCaseOpts, WithAvatarStorage(avatarStorage))
 
 	// Initialize RabbitMQ event consumer.
 	if !cfg.Broker.Enabled() {
 		return fmt.Errorf("broker: url is required")
 	}
-	eventConsumer, err := processingbroker.NewConsumer(cfg.Broker, log)
+	eventConsumer, err := processingbroker.NewConsumer(cfg.Broker, log, tracer)
 	if err != nil {
 		return fmt.Errorf("rabbitmq consumer: %w", err)
 	}
-	log.Info("rabbitmq event consumer configured",
+	log.Info(context.Background(), "rabbitmq event consumer configured",
 		"exchange", cfg.Broker.Exchange,
 		"queue", cfg.Broker.Queue,
 		"dead_letter_exchange", cfg.Broker.DeadLetterExchange,
@@ -106,10 +240,13 @@ func Run() error {
 
 	// Initialize application.
 	app := &App{
-		Log:             log,
-		ShutdownTimeout: cfg.Worker.ShutdownTimeout,
-		UseCases:        useCases,
-		EventConsumer:   eventConsumer,
+		Log:                            log,
+		TelemetryShutdown:              telemetryShutdown,
+		ShutdownTimeout:                cfg.Worker.ShutdownTimeout,
+		UseCases:                       useCases,
+		EventConsumer:                  eventConsumer,
+		MetricsEnabled:                 cfg.Metrics.Enabled,
+		PeriodicMetricsCollectInterval: cfg.Metrics.CollectInterval,
 	}
 
 	// Start application.

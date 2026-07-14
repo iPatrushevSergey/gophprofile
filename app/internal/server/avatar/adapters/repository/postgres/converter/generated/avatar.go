@@ -47,11 +47,11 @@ func (c *AvatarConverterImpl) AvatarModelToAvatarEntity(source model.Avatar) (en
 	entityAvatar.Width = converter.IntPtrToInt(source.Width)
 	entityAvatar.Height = converter.IntPtrToInt(source.Height)
 	entityAvatar.S3Key = source.S3Key
-	mapVoThumbnailSizeString, err := converter.RawMessageToThumbnailS3Keys(source.ThumbnailS3Keys)
+	mapVoThumbnailSizeMapVoOutputFormatString, err := converter.RawMessageToThumbnailS3Keys(source.ThumbnailS3Keys)
 	if err != nil {
 		return entityAvatar, err
 	}
-	entityAvatar.ThumbnailS3Keys = mapVoThumbnailSizeString
+	entityAvatar.ThumbnailS3Keys = mapVoThumbnailSizeMapVoOutputFormatString
 	entityAvatar.UploadStatus = converter.StringToUploadStatus(source.UploadStatus)
 	entityAvatar.ProcessingStatus = converter.StringToProcessingStatus(source.ProcessingStatus)
 	entityAvatar.CreatedAt = converter.CopyTime(source.CreatedAt)

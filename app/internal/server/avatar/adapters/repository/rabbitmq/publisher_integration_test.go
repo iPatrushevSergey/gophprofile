@@ -21,9 +21,9 @@ func TestPublisher_PublishAvatarUploaded(t *testing.T) {
 		AvatarID: "avatar-1",
 		UserID:   "user-1",
 		S3Key:    "user-1/avatar-1/original",
-	}))
+	}, nil))
 	require.NoError(t, publisher.PublishAvatarDeleted(ctx, dto.AvatarDeletedEvent{
 		AvatarID: "avatar-1",
 		S3Keys:   []string{"user-1/avatar-1/original"},
-	}))
+	}, nil))
 }

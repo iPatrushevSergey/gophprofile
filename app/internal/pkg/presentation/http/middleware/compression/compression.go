@@ -34,13 +34,23 @@ func CompressMiddleware(log pkgport.Logger, compressors ...Compressor) echo.Midd
 				if reqCompressor, ok := encodingToCompressor[reqEncoding]; ok {
 					compressorReader, err := reqCompressor.NewReader(c.Request().Body)
 					if err != nil {
-						log.Error("failed to create decompress reader", "error", err, "encoding", reqEncoding)
+						log.Error(
+							c.Request().Context(),
+							"failed to create decompress reader",
+							"error", err,
+							"encoding", reqEncoding,
+						)
 						return c.NoContent(http.StatusBadRequest)
 					}
 					c.Request().Body = compressorReader
 					defer func() {
 						if err := compressorReader.Close(); err != nil {
-							log.Warn("failed to close decompress reader", "error", err, "encoding", reqEncoding)
+							log.Warn(
+								c.Request().Context(),
+								"failed to close decompress reader",
+								"error", err,
+								"encoding", reqEncoding,
+							)
 						}
 					}()
 				}
@@ -73,6 +83,7 @@ func CompressMiddleware(log pkgport.Logger, compressors ...Compressor) echo.Midd
 				if writerWithCompressor.compressorWriter != nil {
 					if err := writerWithCompressor.compressorWriter.Close(); err != nil {
 						log.Warn(
+							c.Request().Context(),
 							"failed to close response compressor writer",
 							"error", err,
 							"encoding", writerWithCompressor.compressor.ContentEncoding(),

@@ -1,0 +1,24 @@
+groups:
+  - name: gophprofile-logs
+    rules:
+      - alert: ErrorLogsDetected
+        expr: |
+          sum(count_over_time({service_name=~"gophprofile-.*"} | detected_level=`error` [5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+          source: loki
+        annotations:
+          summary: Error logs detected in GophProfile services
+          description: At least one error-level log entry was recorded in the last 5 minutes.
+
+      - alert: HighErrorLogRate
+        expr: |
+          sum(rate({service_name=~"gophprofile-.*"} | detected_level=`error` [5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          source: loki
+        annotations:
+          summary: Sustained error log rate in GophProfile services
+          description: Error log rate exceeds 0.05/s for 5 minutes.

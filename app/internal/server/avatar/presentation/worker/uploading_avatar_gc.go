@@ -31,9 +31,7 @@ func NewUploadingAvatarGCWorker(
 
 // Run executes the worker loop.
 func (w *UploadingAvatarGCWorker) Run(ctx context.Context) {
-	uc := w.useCases.ExpireUploadingAvatarsUseCase()
-
-	w.log.Info("uploading avatar gc worker started", "interval", w.interval)
+	w.log.Info(ctx, "uploading avatar gc worker started", "interval", w.interval)
 
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
@@ -41,11 +39,12 @@ func (w *UploadingAvatarGCWorker) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			w.log.Info("uploading avatar gc worker stopped")
+			w.log.Info(ctx, "uploading avatar gc worker stopped")
 			return
 		case <-ticker.C:
-			if _, err := uc.Execute(ctx, struct{}{}); err != nil {
-				w.log.Error("expire uploading avatars failed", "error", err)
+			workCtx := context.WithoutCancel(ctx)
+			if _, err := w.useCases.ExpireUploadingAvatarsUseCase().Execute(workCtx, struct{}{}); err != nil {
+				w.log.Error(workCtx, "expire uploading avatars failed", "error", err)
 			}
 		}
 	}

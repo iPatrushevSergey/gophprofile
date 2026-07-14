@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"github.com/iPatrushevSergey/gophprofile/app/internal/pkg/apputil"
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	appdto "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 	processingappusecase "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/usecase"
@@ -15,10 +16,11 @@ type GlobalUseCases interface {
 
 // globalUseCases implements GlobalUseCases.
 type globalUseCases struct {
-	subscribeAvatarEvents appport.UseCase[struct{}, <-chan appdto.BrokerMessage]
-	confirmAvatarEvent    appport.UseCase[appdto.ConfirmAvatarEventInput, struct{}]
-	processUploaded       appport.UseCase[appdto.ProcessUploadedAvatarInput, struct{}]
-	purgeDeleted          appport.UseCase[appdto.PurgeDeletedAvatarInput, struct{}]
+	subscribeAvatarEvents  appport.UseCase[struct{}, <-chan appdto.BrokerMessage]
+	confirmAvatarEvent     appport.UseCase[appdto.ConfirmAvatarEventInput, struct{}]
+	processUploaded        appport.UseCase[appdto.ProcessUploadedAvatarInput, struct{}]
+	purgeDeleted           appport.UseCase[appdto.PurgeDeletedAvatarInput, struct{}]
+	collectPeriodicMetrics appport.UseCase[struct{}, struct{}]
 }
 
 var _ processingpresport.ProcessingUseCases = (*globalUseCases)(nil)
@@ -35,13 +37,17 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 		ImageProcessor: p.imageProcessor,
 		EventConsumer:  p.eventConsumer,
 		Clock:          p.clock,
+		Tracer:         p.tracer,
+		Metrics:        p.metrics,
+		PoolStats:      p.poolStats,
 	})
 
 	return &globalUseCases{
-		subscribeAvatarEvents: processingUseCases.SubscribeAvatarEvents,
-		confirmAvatarEvent:    processingUseCases.ConfirmAvatarEvent,
-		processUploaded:       processingUseCases.ProcessUploaded,
-		purgeDeleted:          processingUseCases.PurgeDeleted,
+		subscribeAvatarEvents:  processingUseCases.SubscribeAvatarEvents,
+		confirmAvatarEvent:     processingUseCases.ConfirmAvatarEvent,
+		processUploaded:        processingUseCases.ProcessUploaded,
+		purgeDeleted:           processingUseCases.PurgeDeleted,
+		collectPeriodicMetrics: processingUseCases.CollectPeriodicMetrics,
 	}
 }
 
@@ -65,6 +71,11 @@ func (f *globalUseCases) PurgeDeletedUseCase() appport.UseCase[appdto.PurgeDelet
 	return f.purgeDeleted
 }
 
+// CollectPeriodicMetricsUseCase returns the collect periodic metrics use case.
+func (f *globalUseCases) CollectPeriodicMetricsUseCase() appport.UseCase[struct{}, struct{}] {
+	return f.collectPeriodicMetrics
+}
+
 // globalUseCasesParams holds dependencies required to build global use cases.
 type globalUseCasesParams struct {
 	avatarRepo     appport.AvatarRepo
@@ -72,6 +83,9 @@ type globalUseCasesParams struct {
 	imageProcessor appport.ImageProcessor
 	eventConsumer  appport.EventConsumer
 	clock          appport.Clock
+	tracer         pkgport.Tracer
+	metrics        pkgport.Metrics
+	poolStats      pkgport.PoolStats
 }
 
 // validate validates the global use cases parameters.
@@ -90,6 +104,9 @@ func (p globalUseCasesParams) validate() {
 	}
 	if p.clock == nil {
 		panic("NewGlobalUseCases: WithClock is required")
+	}
+	if p.tracer == nil {
+		panic("NewGlobalUseCases: WithTracer is required")
 	}
 }
 
@@ -116,4 +133,19 @@ func WithEventConsumer(c appport.EventConsumer) apputil.Option[globalUseCasesPar
 // WithClock sets the clock.
 func WithClock(c appport.Clock) apputil.Option[globalUseCasesParams] {
 	return func(p *globalUseCasesParams) { p.clock = c }
+}
+
+// WithTracer sets the tracer.
+func WithTracer(t pkgport.Tracer) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.tracer = t }
+}
+
+// WithMetrics sets the metrics recorder.
+func WithMetrics(m pkgport.Metrics) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.metrics = m }
+}
+
+// WithPoolStats sets the database pool statistics provider.
+func WithPoolStats(s pkgport.PoolStats) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.poolStats = s }
 }

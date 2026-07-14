@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/dto"
 	appport "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/port"
 )
@@ -12,14 +13,18 @@ type ProcessingUseCasesParams struct {
 	ImageProcessor appport.ImageProcessor
 	EventConsumer  appport.EventConsumer
 	Clock          appport.Clock
+	Tracer         pkgport.Tracer
+	Metrics        pkgport.Metrics
+	PoolStats      pkgport.PoolStats
 }
 
 // ProcessingUseCases holds processing module use cases exposed to the composition root.
 type ProcessingUseCases struct {
-	SubscribeAvatarEvents appport.UseCase[struct{}, <-chan dto.BrokerMessage]
-	ConfirmAvatarEvent    appport.UseCase[dto.ConfirmAvatarEventInput, struct{}]
-	ProcessUploaded       appport.UseCase[dto.ProcessUploadedAvatarInput, struct{}]
-	PurgeDeleted          appport.UseCase[dto.PurgeDeletedAvatarInput, struct{}]
+	SubscribeAvatarEvents  appport.UseCase[struct{}, <-chan dto.BrokerMessage]
+	ConfirmAvatarEvent     appport.UseCase[dto.ConfirmAvatarEventInput, struct{}]
+	ProcessUploaded        appport.UseCase[dto.ProcessUploadedAvatarInput, struct{}]
+	PurgeDeleted           appport.UseCase[dto.PurgeDeletedAvatarInput, struct{}]
+	CollectPeriodicMetrics appport.UseCase[struct{}, struct{}]
 }
 
 // NewProcessingUseCases builds processing module use cases.
@@ -32,7 +37,13 @@ func NewProcessingUseCases(p ProcessingUseCasesParams) *ProcessingUseCases {
 			p.AvatarStorage,
 			p.ImageProcessor,
 			p.Clock,
+			p.Tracer,
+			p.Metrics,
 		),
-		PurgeDeleted: NewPurgeDeletedAvatar(p.AvatarStorage),
+		PurgeDeleted: NewPurgeDeletedAvatar(p.AvatarStorage, p.Tracer),
+		CollectPeriodicMetrics: NewCollectPeriodicMetrics(
+			p.PoolStats,
+			p.Metrics,
+		),
 	}
 }

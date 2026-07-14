@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	metricsadapter "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/adapters/metrics"
+	pkgportmocks "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port/mocks"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/imaging"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/application/dto"
@@ -34,6 +36,11 @@ func TestProcessUploadedAvatar_Execute(t *testing.T) {
 		writer := portmocks.NewMockAvatarWriter(ctrl)
 		storage := portmocks.NewMockAvatarStorage(ctrl)
 		clock := portmocks.NewMockClock(ctrl)
+		tracer := pkgportmocks.NewMockTracer(ctrl)
+		span := pkgportmocks.NewMockSpan(ctrl)
+		span.EXPECT().Fail(gomock.Any())
+		span.EXPECT().End()
+		tracer.EXPECT().Start(ctx, gomock.Any()).Return(ctx, span)
 
 		pngData := minimalPNG(t)
 		clock.EXPECT().Now().Return(now).AnyTimes()
@@ -42,7 +49,7 @@ func TestProcessUploadedAvatar_Execute(t *testing.T) {
 		storage.EXPECT().Put(ctx, gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(9)
 		writer.EXPECT().CompleteProcessing(ctx, gomock.Any()).Return(nil)
 
-		uc := NewProcessUploadedAvatar(writer, storage, imaging.NewProcessor(), clock)
+		uc := NewProcessUploadedAvatar(writer, storage, imaging.NewProcessor(), clock, tracer, metricsadapter.NewNopMetrics())
 		_, err := uc.Execute(ctx, dto.ProcessUploadedAvatarInput{
 			AvatarID: "avatar-1",
 			UserID:   "user-1",
@@ -53,11 +60,15 @@ func TestProcessUploadedAvatar_Execute(t *testing.T) {
 
 	t.Run("badInput", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
+		clock := portmocks.NewMockClock(ctrl)
+		clock.EXPECT().Now().Return(now).AnyTimes()
 		uc := NewProcessUploadedAvatar(
 			portmocks.NewMockAvatarWriter(ctrl),
 			portmocks.NewMockAvatarStorage(ctrl),
 			imaging.NewProcessor(),
-			portmocks.NewMockClock(ctrl),
+			clock,
+			pkgportmocks.NewMockTracer(ctrl),
+			metricsadapter.NewNopMetrics(),
 		)
 
 		_, err := uc.Execute(ctx, dto.ProcessUploadedAvatarInput{})
@@ -67,15 +78,22 @@ func TestProcessUploadedAvatar_Execute(t *testing.T) {
 	t.Run("alreadyProcessed", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		writer := portmocks.NewMockAvatarWriter(ctrl)
+		tracer := pkgportmocks.NewMockTracer(ctrl)
+		span := pkgportmocks.NewMockSpan(ctrl)
+		span.EXPECT().Fail(gomock.Any())
+		span.EXPECT().End()
+		tracer.EXPECT().Start(ctx, gomock.Any()).Return(ctx, span)
 		writer.EXPECT().StartProcessing(ctx, "avatar-1", now).Return(application.ErrAlreadyProcessed)
 		clock := portmocks.NewMockClock(ctrl)
-		clock.EXPECT().Now().Return(now)
+		clock.EXPECT().Now().Return(now).AnyTimes()
 
 		uc := NewProcessUploadedAvatar(
 			writer,
 			portmocks.NewMockAvatarStorage(ctrl),
 			imaging.NewProcessor(),
 			clock,
+			tracer,
+			metricsadapter.NewNopMetrics(),
 		)
 
 		_, err := uc.Execute(ctx, dto.ProcessUploadedAvatarInput{

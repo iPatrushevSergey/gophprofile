@@ -36,6 +36,14 @@ func OutboxEventModelToOutboxEventDto(source model.OutboxEvent) (dto.OutboxEvent
 		return dto.OutboxEvent{}, fmt.Errorf("unknown outbox event type: %s", event.EventType)
 	}
 
+	if len(source.TraceCarrier) > 0 {
+		var carrier map[string]string
+		if err := json.Unmarshal(source.TraceCarrier, &carrier); err != nil {
+			return dto.OutboxEvent{}, fmt.Errorf("decode outbox trace carrier: %w", err)
+		}
+		event.TraceCarrier = carrier
+	}
+
 	return event, nil
 }
 
@@ -48,11 +56,13 @@ type OutboxConverter interface {
 	// goverter:ignore Status
 	// goverter:ignore PublishedAt
 	// goverter:map Event Payload | AvatarUploadedEventToPayload
+	// goverter:map TraceCarrier TraceCarrier | TraceCarrierToRawMessage
 	OutboxUploadedCreateToOutboxEventModel(source dto.OutboxUploadedCreate) (model.OutboxEvent, error)
 	// goverter:ignore EventType
 	// goverter:ignore Status
 	// goverter:ignore PublishedAt
 	// goverter:map Event Payload | AvatarDeletedEventToPayload
+	// goverter:map TraceCarrier TraceCarrier | TraceCarrierToRawMessage
 	OutboxDeletedCreateToOutboxEventModel(source dto.OutboxDeletedCreate) (model.OutboxEvent, error)
 }
 
@@ -68,5 +78,14 @@ func AvatarUploadedEventToPayload(source dto.AvatarUploadedEvent) (json.RawMessa
 
 // AvatarDeletedEventToPayload serializes deleted event payload for outbox storage.
 func AvatarDeletedEventToPayload(source dto.AvatarDeletedEvent) (json.RawMessage, error) {
+	return json.Marshal(source)
+}
+
+// TraceCarrierToRawMessage serializes trace propagation fields for outbox storage.
+func TraceCarrierToRawMessage(source map[string]string) (json.RawMessage, error) {
+	if len(source) == 0 {
+		return nil, nil
+	}
+
 	return json.Marshal(source)
 }

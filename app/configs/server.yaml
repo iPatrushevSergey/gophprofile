@@ -7,6 +7,14 @@ server:
 logger:
   level: info
 
+telemetry:
+  enabled: false
+  service_name: gophprofile-server
+  otlp_endpoint: "localhost:4317"
+  otlp_insecure: true
+  sample_ratio: 1.0
+  environment: development
+
 database:
   uri: ""
   max_conns: 25

@@ -12,4 +12,5 @@ type ProcessingUseCases interface {
 	ConfirmAvatarEventUseCase() appport.UseCase[appdto.ConfirmAvatarEventInput, struct{}]
 	ProcessUploadedUseCase() appport.UseCase[appdto.ProcessUploadedAvatarInput, struct{}]
 	PurgeDeletedUseCase() appport.UseCase[appdto.PurgeDeletedAvatarInput, struct{}]
+	CollectPeriodicMetricsUseCase() appport.UseCase[struct{}, struct{}]
 }

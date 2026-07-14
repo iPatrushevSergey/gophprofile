@@ -51,7 +51,7 @@ func (uc *ExpireUploadingAvatars) Execute(ctx context.Context, _ struct{}) (stru
 	for _, avatar := range avatars {
 		if uc.avatarStorage != nil {
 			if err := uc.avatarStorage.Delete(ctx, avatar.S3Key); err != nil {
-				uc.log.Error("expire uploading avatar: delete object failed",
+				uc.log.Error(ctx, "expire uploading avatar: delete object failed",
 					"error", err,
 					"avatar_id", avatar.ID,
 					"s3_key", avatar.S3Key,
@@ -60,7 +60,7 @@ func (uc *ExpireUploadingAvatars) Execute(ctx context.Context, _ struct{}) (stru
 			}
 		}
 		if err := uc.avatarWriter.MarkUploadFailed(ctx, avatar.ID, now); err != nil {
-			uc.log.Error("expire uploading avatar: mark upload failed",
+			uc.log.Error(ctx, "expire uploading avatar: mark upload failed",
 				"error", err,
 				"avatar_id", avatar.ID,
 			)

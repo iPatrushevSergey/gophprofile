@@ -51,16 +51,127 @@ services:
     ports:
       - "127.0.0.1:5672:5672"
       - "127.0.0.1:15672:15672"
+      - "127.0.0.1:15692:15692"
     volumes:
       - ./deploy/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./deploy/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
       - ./deploy/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 5s
-      timeout: 5s
-      retries: 10
-      start_period: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.64.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:16686:16686"
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./deploy/observability/otel-collector/config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:8889:8889"
+    depends_on:
+      jaeger:
+        condition: service_started
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./deploy/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/observability/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9092:9090"
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./deploy/observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "127.0.0.1:9093:9093"
+    depends_on:
+      alert-webhook:
+        condition: service_started
+    restart: unless-stopped
+
+  alert-webhook:
+    image: ealen/echo-server:0.9.2
+    environment:
+      PORT: "80"
+      LOGS: "true"
+      LOG_STYLE: "pretty"
+    ports:
+      - "127.0.0.1:5001:80"
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.0
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - "127.0.0.1:9100:9100"
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.4.2
+    command: -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./deploy/observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - ./deploy/observability/loki/rules:/loki/rules:ro
+      - loki_data:/loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    depends_on:
+      alertmanager:
+        condition: service_started
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./deploy/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/observability/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+      jaeger:
+        condition: service_started
     restart: unless-stopped
 
   migrate:
@@ -95,6 +206,8 @@ services:
         condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
+      otel-collector:
+        condition: service_started
     environment:
       GOPHPROFILE_DATABASE_URI: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       GOPHPROFILE_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
@@ -103,6 +216,13 @@ services:
       GOPHPROFILE_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       GOPHPROFILE_MINIO_USE_SSL: ${GOPHPROFILE_MINIO_USE_SSL:-false}
       GOPHPROFILE_SERVER_ADDRESS: ${GOPHPROFILE_SERVER_ADDRESS:-0.0.0.0:8080}
+      GOPHPROFILE_TELEMETRY_ENABLED: "true"
+      GOPHPROFILE_TELEMETRY_OTLP_ENDPOINT: otel-collector:4317
+      GOPHPROFILE_TELEMETRY_OTLP_INSECURE: "true"
+      GOPHPROFILE_TELEMETRY_ENVIRONMENT: docker
+      GOPHPROFILE_METRICS_ENABLED: "true"
+      GOPHPROFILE_LOGGER_BACKEND: slog
+      GOPHPROFILE_LOGGER_FORMAT: json
     ports:
       - "127.0.0.1:8080:8080"
     security_opt:
@@ -125,6 +245,8 @@ services:
         condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
+      otel-collector:
+        condition: service_started
     environment:
       GOPHPROFILE_DATABASE_URI: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       GOPHPROFILE_BROKER_URL: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/
@@ -132,6 +254,13 @@ services:
       GOPHPROFILE_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       GOPHPROFILE_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       GOPHPROFILE_MINIO_USE_SSL: ${GOPHPROFILE_MINIO_USE_SSL:-false}
+      GOPHPROFILE_TELEMETRY_ENABLED: "true"
+      GOPHPROFILE_TELEMETRY_OTLP_ENDPOINT: otel-collector:4317
+      GOPHPROFILE_TELEMETRY_OTLP_INSECURE: "true"
+      GOPHPROFILE_TELEMETRY_ENVIRONMENT: docker
+      GOPHPROFILE_METRICS_ENABLED: "true"
+      GOPHPROFILE_LOGGER_BACKEND: slog
+      GOPHPROFILE_LOGGER_FORMAT: json
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -143,3 +272,6 @@ volumes:
   postgres_data:
   minio_data:
   rabbitmq_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:

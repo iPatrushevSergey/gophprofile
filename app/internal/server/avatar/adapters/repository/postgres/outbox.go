@@ -41,9 +41,9 @@ func (r *OutboxRepository) CreateUploaded(ctx context.Context, event dto.OutboxU
 		}
 
 		_, err = q.Exec(ctx, `
-			INSERT INTO avatar_outbox (id, event_type, payload, created_at)
-			VALUES ($1, $2, $3, $4)`,
-			dbRow.ID, string(vo.OutboxEventAvatarUploaded), dbRow.Payload, dbRow.CreatedAt,
+			INSERT INTO avatar_outbox (id, event_type, payload, trace_carrier, created_at)
+			VALUES ($1, $2, $3, $4, $5)`,
+			dbRow.ID, string(vo.OutboxEventAvatarUploaded), dbRow.Payload, dbRow.TraceCarrier, dbRow.CreatedAt,
 		)
 		return err
 	})
@@ -60,9 +60,9 @@ func (r *OutboxRepository) CreateDeleted(ctx context.Context, event dto.OutboxDe
 		}
 
 		_, err = q.Exec(ctx, `
-			INSERT INTO avatar_outbox (id, event_type, payload, created_at)
-			VALUES ($1, $2, $3, $4)`,
-			dbRow.ID, string(vo.OutboxEventAvatarDeleted), dbRow.Payload, dbRow.CreatedAt,
+			INSERT INTO avatar_outbox (id, event_type, payload, trace_carrier, created_at)
+			VALUES ($1, $2, $3, $4, $5)`,
+			dbRow.ID, string(vo.OutboxEventAvatarDeleted), dbRow.Payload, dbRow.TraceCarrier, dbRow.CreatedAt,
 		)
 		return err
 	})
@@ -127,7 +127,7 @@ func (r *OutboxRepository) MarkPublishing(ctx context.Context, limit int, publis
 				LIMIT $4
 				FOR UPDATE SKIP LOCKED
 			)
-			RETURNING id, event_type, payload, status, created_at, published_at`,
+			RETURNING id, event_type, payload, trace_carrier, status, created_at, published_at`,
 			string(vo.OutboxStatusPublishing), publishingAt, string(vo.OutboxStatusPending), limit,
 		)
 		if err != nil {
@@ -154,4 +154,24 @@ func (r *OutboxRepository) MarkPublishing(ctx context.Context, limit int, publis
 		return nil, err
 	}
 	return events, nil
+}
+
+// CountPending returns the number of pending or publishing outbox messages.
+func (r *OutboxRepository) CountPending(ctx context.Context) (int64, error) {
+	var pending int64
+
+	err := r.transactor.DoWithRetry(ctx, func() error {
+		q := r.transactor.GetQuerier(ctx)
+		return q.QueryRow(ctx, `
+			SELECT COUNT(*)
+			FROM avatar_outbox
+			WHERE status IN ($1, $2)`,
+			string(vo.OutboxStatusPending), string(vo.OutboxStatusPublishing),
+		).Scan(&pending)
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return pending, nil
 }
