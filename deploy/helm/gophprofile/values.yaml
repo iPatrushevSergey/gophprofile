@@ -160,6 +160,7 @@ observability:
   prometheus:
     image: prom/prometheus:v3.2.1
     storage: 1Gi
+    storageClassName: ""
   alertmanager:
     image: prom/alertmanager:v0.28.1
   alertWebhook:
@@ -169,6 +170,7 @@ observability:
   loki:
     image: grafana/loki:3.4.2
     storage: 1Gi
+    storageClassName: ""
   grafana:
     image: grafana/grafana:11.5.2
     adminUser: admin
