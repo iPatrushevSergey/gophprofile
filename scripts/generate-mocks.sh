@@ -31,5 +31,6 @@ gen app/internal/processor/processing/application/port/event_consumer.go app/int
 gen app/internal/processor/processing/application/port/image_processor.go app/internal/processor/processing/application/port/mocks/mock_image_processor.go
 gen app/internal/processor/processing/application/port/transactor.go app/internal/processor/processing/application/port/mocks/mock_transactor.go
 gen app/internal/processor/processing/application/port/clock.go app/internal/processor/processing/application/port/mocks/mock_clock.go
+gen app/internal/processor/processing/application/port/file_repository.go app/internal/processor/processing/application/port/mocks/mock_file_repository.go
 
 echo "mocks generated"
