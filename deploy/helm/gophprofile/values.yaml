@@ -36,7 +36,7 @@ postgres:
 minio:
   enabled: true
   image: minio/minio:RELEASE.2024-12-18T13-15-44Z
-  mcImage: minio/mc:latest
+  mcImage: minio/mc:RELEASE.2024-11-21T17-21-54Z
   bucket: gophprofile
   rootUser: ""
   rootPassword: ""
