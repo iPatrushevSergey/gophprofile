@@ -19,6 +19,8 @@ func TestNewProcessingUseCases_wiresUseCases(t *testing.T) {
 		ImageProcessor: portmocks.NewMockImageProcessor(ctrl),
 		EventConsumer:  portmocks.NewMockEventConsumer(ctrl),
 		Clock:          portmocks.NewMockClock(ctrl),
+		FileRepo:       portmocks.NewMockFileRepo(ctrl),
+		HealthFilePath: "/tmp/health",
 		Tracer:         pkgportmocks.NewMockTracer(ctrl),
 	})
 
@@ -27,4 +29,5 @@ func TestNewProcessingUseCases_wiresUseCases(t *testing.T) {
 	assert.NotNil(t, uc.ProcessUploaded)
 	assert.NotNil(t, uc.PurgeDeleted)
 	assert.NotNil(t, uc.CollectPeriodicMetrics)
+	assert.NotNil(t, uc.RefreshHealthFile)
 }
