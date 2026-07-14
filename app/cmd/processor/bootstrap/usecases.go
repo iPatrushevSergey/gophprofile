@@ -21,6 +21,7 @@ type globalUseCases struct {
 	processUploaded        appport.UseCase[appdto.ProcessUploadedAvatarInput, struct{}]
 	purgeDeleted           appport.UseCase[appdto.PurgeDeletedAvatarInput, struct{}]
 	collectPeriodicMetrics appport.UseCase[struct{}, struct{}]
+	refreshHealthFile      appport.UseCase[struct{}, struct{}]
 }
 
 var _ processingpresport.ProcessingUseCases = (*globalUseCases)(nil)
@@ -37,6 +38,8 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 		ImageProcessor: p.imageProcessor,
 		EventConsumer:  p.eventConsumer,
 		Clock:          p.clock,
+		FileRepo:       p.fileRepo,
+		HealthFilePath: p.healthFilePath,
 		Tracer:         p.tracer,
 		Metrics:        p.metrics,
 		PoolStats:      p.poolStats,
@@ -48,6 +51,7 @@ func NewGlobalUseCases(opts ...apputil.Option[globalUseCasesParams]) GlobalUseCa
 		processUploaded:        processingUseCases.ProcessUploaded,
 		purgeDeleted:           processingUseCases.PurgeDeleted,
 		collectPeriodicMetrics: processingUseCases.CollectPeriodicMetrics,
+		refreshHealthFile:      processingUseCases.RefreshHealthFile,
 	}
 }
 
@@ -76,6 +80,11 @@ func (f *globalUseCases) CollectPeriodicMetricsUseCase() appport.UseCase[struct{
 	return f.collectPeriodicMetrics
 }
 
+// RefreshHealthFileUseCase returns the refresh health file use case.
+func (f *globalUseCases) RefreshHealthFileUseCase() appport.UseCase[struct{}, struct{}] {
+	return f.refreshHealthFile
+}
+
 // globalUseCasesParams holds dependencies required to build global use cases.
 type globalUseCasesParams struct {
 	avatarRepo     appport.AvatarRepo
@@ -83,6 +92,8 @@ type globalUseCasesParams struct {
 	imageProcessor appport.ImageProcessor
 	eventConsumer  appport.EventConsumer
 	clock          appport.Clock
+	fileRepo       appport.FileRepo
+	healthFilePath string
 	tracer         pkgport.Tracer
 	metrics        pkgport.Metrics
 	poolStats      pkgport.PoolStats
@@ -104,6 +115,9 @@ func (p globalUseCasesParams) validate() {
 	}
 	if p.clock == nil {
 		panic("NewGlobalUseCases: WithClock is required")
+	}
+	if p.fileRepo == nil {
+		panic("NewGlobalUseCases: WithFileRepo is required")
 	}
 	if p.tracer == nil {
 		panic("NewGlobalUseCases: WithTracer is required")
@@ -133,6 +147,16 @@ func WithEventConsumer(c appport.EventConsumer) apputil.Option[globalUseCasesPar
 // WithClock sets the clock.
 func WithClock(c appport.Clock) apputil.Option[globalUseCasesParams] {
 	return func(p *globalUseCasesParams) { p.clock = c }
+}
+
+// WithFileRepo sets the filesystem repository.
+func WithFileRepo(r appport.FileRepo) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.fileRepo = r }
+}
+
+// WithHealthFilePath sets the processor health file path.
+func WithHealthFilePath(path string) apputil.Option[globalUseCasesParams] {
+	return func(p *globalUseCasesParams) { p.healthFilePath = path }
 }
 
 // WithTracer sets the tracer.
