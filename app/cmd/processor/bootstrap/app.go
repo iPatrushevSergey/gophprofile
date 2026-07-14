@@ -3,10 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
@@ -78,15 +75,9 @@ func (a *App) Start() {
 	a.Log.Info(ctx, "processor worker started")
 }
 
-// Stop stops the application.
-func (a *App) Stop() error {
-	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
-	defer stop()
-	<-signalCtx.Done()
-
-	a.Log.Info(context.Background(), "shutdown signal received, stopping processor...")
-	ctx, cancel := context.WithTimeout(context.Background(), a.ShutdownTimeout)
-	defer cancel()
+// Shutdown stops background workers, the event consumer and telemetry.
+func (a *App) Shutdown(ctx context.Context) error {
+	a.Log.Info(context.Background(), "stopping processor...")
 
 	a.cancelAvatarProcessorWorker()
 
