@@ -12,6 +12,7 @@ package mocks
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	gomock "go.uber.org/mock/gomock"
 )
@@ -41,15 +42,15 @@ func (m *MockFileRepo) EXPECT() *MockFileRepoMockRecorder {
 }
 
 // MarkAlive mocks base method.
-func (m *MockFileRepo) MarkAlive(ctx context.Context, path string) error {
+func (m *MockFileRepo) MarkAlive(ctx context.Context, path string, updatedAt time.Time) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MarkAlive", ctx, path)
+	ret := m.ctrl.Call(m, "MarkAlive", ctx, path, updatedAt)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // MarkAlive indicates an expected call of MarkAlive.
-func (mr *MockFileRepoMockRecorder) MarkAlive(ctx, path any) *gomock.Call {
+func (mr *MockFileRepoMockRecorder) MarkAlive(ctx, path, updatedAt any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkAlive", reflect.TypeOf((*MockFileRepo)(nil).MarkAlive), ctx, path)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkAlive", reflect.TypeOf((*MockFileRepo)(nil).MarkAlive), ctx, path, updatedAt)
 }
