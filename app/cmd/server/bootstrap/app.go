@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
@@ -96,15 +93,9 @@ func (a *App) Start() {
 	}()
 }
 
-// Stop stops the application.
-func (a *App) Stop() error {
-	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
-	defer stop()
-	<-signalCtx.Done()
-
-	a.Log.Info(context.Background(), "shutdown signal received, stopping server...")
-	ctx, cancel := context.WithTimeout(context.Background(), a.ShutdownTimeout)
-	defer cancel()
+// Shutdown stops the HTTP server, background workers and telemetry.
+func (a *App) Shutdown(ctx context.Context) error {
+	a.Log.Info(context.Background(), "stopping server...")
 
 	var shutdownErr error
 	if err := a.Server.Shutdown(ctx); err != nil {
