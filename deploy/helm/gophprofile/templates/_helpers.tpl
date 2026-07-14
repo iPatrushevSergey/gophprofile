@@ -114,7 +114,6 @@ Component-only settings use server.env / processor.env in values.
 */}}
 {{- define "gophprofile.containerEnv" -}}
 {{- $appSecret := printf "%s-app" (include "gophprofile.fullname" .) -}}
-{{- if .Values.externalSecrets.enabled }}
 - name: GOPHPROFILE_DATABASE_URI
   valueFrom:
     secretKeyRef:
@@ -137,18 +136,6 @@ Component-only settings use server.env / processor.env in values.
     secretKeyRef:
       name: {{ $appSecret }}
       key: GOPHPROFILE_MINIO_SECRET_KEY
-{{- else }}
-- name: GOPHPROFILE_DATABASE_URI
-  value: {{ include "gophprofile.databaseURI" . | quote }}
-- name: GOPHPROFILE_BROKER_URL
-  value: {{ include "gophprofile.brokerURL" . | quote }}
-- name: GOPHPROFILE_MINIO_ENDPOINT
-  value: {{ printf "%s-minio:9000" (include "gophprofile.fullname" .) | quote }}
-- name: GOPHPROFILE_MINIO_ACCESS_KEY
-  value: {{ .Values.minio.rootUser | quote }}
-- name: GOPHPROFILE_MINIO_SECRET_KEY
-  value: {{ .Values.minio.rootPassword | quote }}
-{{- end }}
 - name: GOPHPROFILE_TELEMETRY_OTLP_ENDPOINT
   value: {{ printf "%s-otel-collector:4317" (include "gophprofile.fullname" .) | quote }}
 - name: GOPHPROFILE_TELEMETRY_OTLP_INSECURE
