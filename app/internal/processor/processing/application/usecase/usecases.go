@@ -13,6 +13,8 @@ type ProcessingUseCasesParams struct {
 	ImageProcessor appport.ImageProcessor
 	EventConsumer  appport.EventConsumer
 	Clock          appport.Clock
+	FileRepo       appport.FileRepo
+	HealthFilePath string
 	Tracer         pkgport.Tracer
 	Metrics        pkgport.Metrics
 	PoolStats      pkgport.PoolStats
@@ -25,6 +27,7 @@ type ProcessingUseCases struct {
 	ProcessUploaded        appport.UseCase[dto.ProcessUploadedAvatarInput, struct{}]
 	PurgeDeleted           appport.UseCase[dto.PurgeDeletedAvatarInput, struct{}]
 	CollectPeriodicMetrics appport.UseCase[struct{}, struct{}]
+	RefreshHealthFile      appport.UseCase[struct{}, struct{}]
 }
 
 // NewProcessingUseCases builds processing module use cases.
@@ -45,5 +48,6 @@ func NewProcessingUseCases(p ProcessingUseCasesParams) *ProcessingUseCases {
 			p.PoolStats,
 			p.Metrics,
 		),
+		RefreshHealthFile: NewRefreshHealthFile(p.FileRepo, p.Clock, p.HealthFilePath),
 	}
 }
