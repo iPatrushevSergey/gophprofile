@@ -39,7 +39,6 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           securityContext:
             {{- include "gophprofile.containerSecurityContext" . | nindent 12 }}
-          {{- if .Values.externalSecrets.enabled }}
           command:
             - /bin/sh
             - -c
@@ -51,13 +50,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "gophprofile.fullname" . }}-app
                   key: GOPHPROFILE_DATABASE_URI
-          {{- else }}
-          args:
-            - -d
-            - {{ include "gophprofile.databaseURI" . | quote }}
-            - -dir
-            - /src/migrations/gophprofile
-          {{- end }}
           volumeMounts:
             - name: tmp
               mountPath: /tmp
