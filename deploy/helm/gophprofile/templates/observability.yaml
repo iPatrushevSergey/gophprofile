@@ -348,7 +348,7 @@ spec:
     app.kubernetes.io/component: prometheus
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ $fullname }}-prometheus
   namespace: {{ $ns }}
@@ -356,6 +356,7 @@ metadata:
     {{- include "gophprofile.labels" . | nindent 4 }}
     app.kubernetes.io/component: prometheus
 spec:
+  serviceName: {{ $fullname }}-prometheus
   replicas: 1
   selector:
     matchLabels:
@@ -386,8 +387,17 @@ spec:
         - name: config
           configMap:
             name: {{ $fullname }}-prometheus
-        - name: data
-          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.observability.prometheus.storageClassName }}
+        storageClassName: {{ .Values.observability.prometheus.storageClassName | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.observability.prometheus.storage }}
 ---
 apiVersion: v1
 kind: Service
@@ -529,7 +539,7 @@ spec:
     app.kubernetes.io/component: loki
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ $fullname }}-loki
   namespace: {{ $ns }}
@@ -537,6 +547,7 @@ metadata:
     {{- include "gophprofile.labels" . | nindent 4 }}
     app.kubernetes.io/component: loki
 spec:
+  serviceName: {{ $fullname }}-loki
   replicas: 1
   selector:
     matchLabels:
@@ -565,8 +576,17 @@ spec:
         - name: config
           configMap:
             name: {{ $fullname }}-loki
-        - name: data
-          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.observability.loki.storageClassName }}
+        storageClassName: {{ .Values.observability.loki.storageClassName | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.observability.loki.storage }}
 ---
 apiVersion: v1
 kind: ConfigMap
