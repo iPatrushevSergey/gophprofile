@@ -74,7 +74,7 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - kill -0 1
+                - find /tmp/health -mmin -2 | grep -q .
             initialDelaySeconds: 30
             periodSeconds: 20
           resources:
