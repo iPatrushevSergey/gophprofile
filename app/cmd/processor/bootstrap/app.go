@@ -24,8 +24,10 @@ type App struct {
 	EventConsumer                  processingappport.EventConsumer
 	MetricsEnabled                 bool
 	PeriodicMetricsCollectInterval time.Duration
+	HealthFileInterval             time.Duration
 	cancelAvatarProcessorWorker    context.CancelFunc
 	cancelPeriodicMetricsCollector context.CancelFunc
+	cancelHealthFileWorker         context.CancelFunc
 	workerWg                       sync.WaitGroup
 }
 
@@ -45,6 +47,18 @@ func (a *App) Start() {
 		).Run(workerCtx); err != nil && !errors.Is(err, context.Canceled) {
 			a.Log.Error(workerCtx, "processor worker failed", "error", err)
 		}
+	}()
+
+	healthCtx, healthCancel := context.WithCancel(ctx)
+	a.cancelHealthFileWorker = healthCancel
+	a.workerWg.Add(1)
+	go func() {
+		defer a.workerWg.Done()
+		processingworker.NewHealthFileWorker(
+			a.UseCases.RefreshHealthFileUseCase(),
+			a.Log,
+			a.HealthFileInterval,
+		).Run(healthCtx)
 	}()
 
 	if a.MetricsEnabled {
@@ -75,6 +89,10 @@ func (a *App) Stop() error {
 	defer cancel()
 
 	a.cancelAvatarProcessorWorker()
+
+	if a.cancelHealthFileWorker != nil {
+		a.cancelHealthFileWorker()
+	}
 
 	if a.cancelPeriodicMetricsCollector != nil {
 		a.cancelPeriodicMetricsCollector()
