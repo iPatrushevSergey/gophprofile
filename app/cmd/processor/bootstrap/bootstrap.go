@@ -32,6 +32,7 @@ import (
 	processingbroker "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/broker/rabbitmq"
 	processingclock "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/clock"
 	"github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/imaging"
+	processingfile "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/repository/file"
 	processingminio "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/repository/minio"
 	processingpostgres "github.com/iPatrushevSergey/gophprofile/app/internal/processor/processing/adapters/repository/postgres"
 )
@@ -204,6 +205,8 @@ func Run() error {
 		WithPoolStats(postgres.NewPoolStats(pool)),
 		WithClock(processingclock.NewRealClock()),
 		WithImageProcessor(imaging.NewProcessor()),
+		WithFileRepo(processingfile.NewFileRepository()),
+		WithHealthFilePath(cfg.Worker.HealthFilePath),
 		WithTracer(tracer),
 		WithMetrics(appMetrics),
 	}
@@ -247,6 +250,7 @@ func Run() error {
 		EventConsumer:                  eventConsumer,
 		MetricsEnabled:                 cfg.Metrics.Enabled,
 		PeriodicMetricsCollectInterval: cfg.Metrics.CollectInterval,
+		HealthFileInterval:             cfg.Worker.HealthFileInterval,
 	}
 
 	// Start application.
