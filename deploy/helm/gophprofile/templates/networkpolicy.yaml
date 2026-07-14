@@ -83,7 +83,9 @@ spec:
       {{- include "gophprofile.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: processor
   policyTypes:
+    - Ingress
     - Egress
+  ingress: []
   egress:
     - to:
         - namespaceSelector:
