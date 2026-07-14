@@ -106,9 +106,10 @@ func (a *App) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), a.ShutdownTimeout)
 	defer cancel()
 
+	var shutdownErr error
 	if err := a.Server.Shutdown(ctx); err != nil {
 		a.Log.Error(ctx, "server shutdown failed", "error", err)
-		return err
+		shutdownErr = err
 	}
 
 	if a.cancelUploadGCWorker != nil {
@@ -132,7 +133,9 @@ func (a *App) Stop() error {
 		a.Log.Warn(ctx, "background workers shutdown timeout exceeded", "timeout", a.ShutdownTimeout)
 	}
 
-	a.Log.Info(context.Background(), "server stopped gracefully")
+	if shutdownErr == nil {
+		a.Log.Info(context.Background(), "server stopped gracefully")
+	}
 
 	if a.TelemetryShutdown != nil {
 		if err := a.TelemetryShutdown(ctx); err != nil {
@@ -140,5 +143,5 @@ func (a *App) Stop() error {
 		}
 	}
 
-	return nil
+	return shutdownErr
 }
