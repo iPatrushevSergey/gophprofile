@@ -80,9 +80,9 @@ func (a *App) Start() {
 
 // Stop stops the application.
 func (a *App) Stop() error {
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
-	<-quit
+	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+	defer stop()
+	<-signalCtx.Done()
 
 	a.Log.Info(context.Background(), "shutdown signal received, stopping processor...")
 	ctx, cancel := context.WithTimeout(context.Background(), a.ShutdownTimeout)
