@@ -200,18 +200,17 @@ func (m *Metrics) RecordHTTPRequest(ctx context.Context, method, route, statusCl
 }
 
 // SetStorageBytes sets the total stored avatar bytes for active records.
-func (m *Metrics) SetStorageBytes(bytes int64) {
-	m.storageBytes.Record(context.Background(), float64(bytes))
+func (m *Metrics) SetStorageBytes(ctx context.Context, bytes int64) {
+	m.storageBytes.Record(ctx, float64(bytes))
 }
 
 // SetOutboxPending sets the number of pending or publishing outbox messages.
-func (m *Metrics) SetOutboxPending(count int64) {
-	m.outboxPending.Record(context.Background(), count)
+func (m *Metrics) SetOutboxPending(ctx context.Context, count int64) {
+	m.outboxPending.Record(ctx, count)
 }
 
 // ObserveDBPool observes the database pool statistics.
-func (m *Metrics) ObserveDBPool(stats pkgport.DBPoolStats) {
-	ctx := context.Background()
+func (m *Metrics) ObserveDBPool(ctx context.Context, stats pkgport.DBPoolStats) {
 	m.dbPoolTotalConns.Record(ctx, int64(stats.TotalConns))
 	m.dbPoolIdleConns.Record(ctx, int64(stats.IdleConns))
 	m.dbPoolAcquiredConns.Record(ctx, int64(stats.AcquiredConns))

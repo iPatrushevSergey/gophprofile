@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	pkgport "github.com/iPatrushevSergey/gophprofile/app/internal/pkg/port"
@@ -96,19 +93,14 @@ func (a *App) Start() {
 	}()
 }
 
-// Stop stops the application.
-func (a *App) Stop() error {
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
-	<-quit
+// Shutdown stops the HTTP server, background workers and telemetry.
+func (a *App) Shutdown(ctx context.Context) error {
+	a.Log.Info(context.Background(), "stopping server...")
 
-	a.Log.Info(context.Background(), "shutdown signal received, stopping server...")
-	ctx, cancel := context.WithTimeout(context.Background(), a.ShutdownTimeout)
-	defer cancel()
-
+	var shutdownErr error
 	if err := a.Server.Shutdown(ctx); err != nil {
 		a.Log.Error(ctx, "server shutdown failed", "error", err)
-		return err
+		shutdownErr = err
 	}
 
 	if a.cancelUploadGCWorker != nil {
@@ -132,12 +124,15 @@ func (a *App) Stop() error {
 		a.Log.Warn(ctx, "background workers shutdown timeout exceeded", "timeout", a.ShutdownTimeout)
 	}
 
+	if shutdownErr == nil {
+		a.Log.Info(context.Background(), "server stopped gracefully")
+	}
+
 	if a.TelemetryShutdown != nil {
 		if err := a.TelemetryShutdown(ctx); err != nil {
 			a.Log.Error(ctx, "telemetry shutdown failed", "error", err)
 		}
 	}
 
-	a.Log.Info(context.Background(), "server stopped gracefully")
-	return nil
+	return shutdownErr
 }

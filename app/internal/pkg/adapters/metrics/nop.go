@@ -30,10 +30,10 @@ func (NopMetrics) RecordDelete(context.Context, string) {}
 func (NopMetrics) RecordHTTPRequest(context.Context, string, string, string, time.Duration) {}
 
 // SetStorageBytes implements port.Metrics.
-func (NopMetrics) SetStorageBytes(int64) {}
+func (NopMetrics) SetStorageBytes(context.Context, int64) {}
 
 // SetOutboxPending implements port.Metrics.
-func (NopMetrics) SetOutboxPending(int64) {}
+func (NopMetrics) SetOutboxPending(context.Context, int64) {}
 
 // ObserveDBPool implements port.Metrics.
-func (NopMetrics) ObserveDBPool(pkgport.DBPoolStats) {}
+func (NopMetrics) ObserveDBPool(context.Context, pkgport.DBPoolStats) {}

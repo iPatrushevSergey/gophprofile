@@ -37,19 +37,19 @@ func (uc *CollectPeriodicMetrics) Execute(ctx context.Context, _ struct{}) (stru
 	if err != nil {
 		return struct{}{}, fmt.Errorf("read db pool stats: %w", err)
 	}
-	uc.metrics.ObserveDBPool(stats)
+	uc.metrics.ObserveDBPool(ctx, stats)
 
 	storageBytes, err := uc.avatarReader.SumCompletedStorageBytes(ctx)
 	if err != nil {
 		return struct{}{}, fmt.Errorf("sum completed storage bytes: %w", err)
 	}
-	uc.metrics.SetStorageBytes(storageBytes)
+	uc.metrics.SetStorageBytes(ctx, storageBytes)
 
 	pending, err := uc.outboxReader.CountPending(ctx)
 	if err != nil {
 		return struct{}{}, fmt.Errorf("count pending outbox messages: %w", err)
 	}
-	uc.metrics.SetOutboxPending(pending)
+	uc.metrics.SetOutboxPending(ctx, pending)
 
 	return struct{}{}, nil
 }

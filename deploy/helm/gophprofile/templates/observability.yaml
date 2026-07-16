@@ -1,0 +1,726 @@
+{{- if .Values.observability.enabled }}
+{{- $fullname := include "gophprofile.fullname" . -}}
+{{- $ns := .Values.namespace.name -}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-jaeger
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: jaeger
+spec:
+  ports:
+    - name: ui
+      port: 16686
+      targetPort: 16686
+    - name: otlp
+      port: 4317
+      targetPort: 4317
+  selector:
+    {{- include "gophprofile.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: jaeger
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-jaeger
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "gophprofile.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: jaeger
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: {{ .Values.observability.jaeger.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+          ports:
+            - containerPort: 16686
+            - containerPort: 4317
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-otel-collector
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    exporters:
+      otlp/jaeger:
+        endpoint: {{ $fullname }}-jaeger:4317
+        tls:
+          insecure: true
+      otlphttp/loki:
+        endpoint: http://{{ $fullname }}-loki:3100/otlp
+        compression: gzip
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: 0.0.0.0:8889
+    processors:
+      batch:
+        timeout: 10s
+        send_batch_size: 1024
+      resource/add-job:
+        attributes:
+          - key: job
+            from_attribute: service.name
+            action: upsert
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlp/jaeger]
+        logs:
+          receivers: [otlp]
+          processors: [resource/add-job, batch]
+          exporters: [otlphttp/loki]
+        metrics:
+          receivers: [otlp]
+          processors: [resource/add-job, batch]
+          exporters: [prometheus]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-otel-collector
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+spec:
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+    - name: metrics
+      port: 8889
+      targetPort: 8889
+  selector:
+    {{- include "gophprofile.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-otel-collector
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "gophprofile.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: otel-collector
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: otel-collector
+    spec:
+      containers:
+        - name: otel-collector
+          image: {{ .Values.observability.otelCollector.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args: ["--config=/etc/otel-collector-config.yaml"]
+          ports:
+            - containerPort: 4317
+            - containerPort: 4318
+            - containerPort: 8889
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otel-collector-config.yaml
+              subPath: config.yaml
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $fullname }}-otel-collector
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-alert-webhook
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alert-webhook
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  selector:
+    {{- include "gophprofile.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: alert-webhook
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-alert-webhook
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alert-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "gophprofile.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: alert-webhook
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: alert-webhook
+    spec:
+      containers:
+        - name: alert-webhook
+          image: {{ .Values.observability.alertWebhook.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: PORT
+              value: "80"
+            - name: LOGS
+              value: "true"
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-alertmanager
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alertmanager
+data:
+  alertmanager.yml: |
+    route:
+      receiver: default
+      group_by: [alertname, job, service_name]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 3h
+    receivers:
+      - name: default
+        webhook_configs:
+          - url: http://{{ $fullname }}-alert-webhook/alerts
+            send_resolved: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-alertmanager
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alertmanager
+spec:
+  ports:
+    - name: http
+      port: 9093
+      targetPort: 9093
+  selector:
+    {{- include "gophprofile.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: alertmanager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-alertmanager
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alertmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "gophprofile.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: alertmanager
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: alertmanager
+    spec:
+      containers:
+        - name: alertmanager
+          image: {{ .Values.observability.alertmanager.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+          ports:
+            - containerPort: 9093
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alertmanager
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $fullname }}-alertmanager
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-prometheus
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    rule_files:
+      - /etc/prometheus/rules/*.yaml
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ["{{ $fullname }}-alertmanager:9093"]
+    scrape_configs:
+      - job_name: prometheus
+        static_configs:
+          - targets: ["localhost:9090"]
+      - job_name: otel-collector
+        metrics_path: /metrics
+        static_configs:
+          - targets: ["{{ $fullname }}-otel-collector:8889"]
+      - job_name: node-exporter
+        static_configs:
+          - targets: ["{{ $fullname }}-node-exporter:9100"]
+      - job_name: rabbitmq
+        metrics_path: /metrics
+        static_configs:
+          - targets: ["{{ $fullname }}-rabbitmq:15692"]
+{{- range $path, $_ := .Files.Glob "configs/observability/prometheus/rules/*" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-prometheus
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090
+  selector:
+    {{- include "gophprofile.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $fullname }}-prometheus
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: prometheus
+spec:
+  serviceName: {{ $fullname }}-prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "gophprofile.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: prometheus
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: {{ .Values.observability.prometheus.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --web.enable-lifecycle
+          ports:
+            - containerPort: 9090
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: data
+              mountPath: /prometheus
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $fullname }}-prometheus
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.observability.prometheus.storageClassName }}
+        storageClassName: {{ .Values.observability.prometheus.storageClassName | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.observability.prometheus.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-node-exporter
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: node-exporter
+spec:
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: 9100
+  selector:
+    {{- include "gophprofile.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: node-exporter
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ $fullname }}-node-exporter
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: node-exporter
+spec:
+  selector:
+    matchLabels:
+      {{- include "gophprofile.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: node-exporter
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: node-exporter
+    spec:
+      hostNetwork: true
+      hostPID: true
+      containers:
+        - name: node-exporter
+          image: {{ .Values.observability.nodeExporter.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --path.rootfs=/rootfs
+            - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+          ports:
+            - containerPort: 9100
+              hostPort: 9100
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+            - name: root
+              mountPath: /rootfs
+              readOnly: true
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: root
+          hostPath:
+            path: /
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-loki
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: loki
+data:
+  loki-config.yaml: |
+    auth_enabled: false
+    server:
+      http_listen_port: 3100
+    common:
+      path_prefix: /loki
+      storage:
+        filesystem:
+          chunks_directory: /loki/chunks
+          rules_directory: /loki/rules
+      replication_factor: 1
+      ring:
+        kvstore:
+          store: inmemory
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+    limits_config:
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+    ruler:
+      alertmanager_url: http://{{ $fullname }}-alertmanager:9093
+      enable_api: true
+      storage:
+        type: local
+        local:
+          directory: /loki/rules
+      rule_path: /loki/rules
+      ring:
+        kvstore:
+          store: inmemory
+{{- range $path, $_ := .Files.Glob "configs/observability/loki/rules/*" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-loki
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: loki
+spec:
+  ports:
+    - name: http
+      port: 3100
+      targetPort: 3100
+  selector:
+    {{- include "gophprofile.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: loki
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $fullname }}-loki
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: loki
+spec:
+  serviceName: {{ $fullname }}-loki
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "gophprofile.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: loki
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: loki
+    spec:
+      containers:
+        - name: loki
+          image: {{ .Values.observability.loki.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          args:
+            - -config.file=/etc/loki/loki-config.yaml
+          ports:
+            - containerPort: 3100
+          volumeMounts:
+            - name: config
+              mountPath: /etc/loki
+            - name: data
+              mountPath: /loki
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $fullname }}-loki
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.observability.loki.storageClassName }}
+        storageClassName: {{ .Values.observability.loki.storageClassName | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.observability.loki.storage }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-grafana
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: http://{{ $fullname }}-prometheus:9090
+        isDefault: true
+        editable: false
+      - name: Loki
+        type: loki
+        uid: loki
+        url: http://{{ $fullname }}-loki:3100
+        editable: false
+      - name: Jaeger
+        type: jaeger
+        uid: jaeger
+        access: proxy
+        url: http://{{ $fullname }}-jaeger:16686
+        editable: false
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+            spanStartTimeShift: -1m
+            spanEndTimeShift: 1m
+            filterByTraceID: true
+            filterBySpanID: false
+            mappedTags:
+              - key: service.name
+                value: service_name
+          nodeGraph:
+            enabled: true
+{{- range $path, $_ := .Files.Glob "configs/observability/grafana/provisioning/dashboards/*" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}
+{{- range $path, $_ := .Files.Glob "configs/observability/grafana/dashboards/*" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-grafana
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+  selector:
+    {{- include "gophprofile.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-grafana
+  namespace: {{ $ns }}
+  labels:
+    {{- include "gophprofile.labels" . | nindent 4 }}
+    app.kubernetes.io/component: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "gophprofile.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: grafana
+  template:
+    metadata:
+      labels:
+        {{- include "gophprofile.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: {{ .Values.observability.grafana.image }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: {{ .Values.observability.grafana.adminUser | quote }}
+            {{- if .Values.externalSecrets.enabled }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $fullname }}-grafana
+                  key: GF_SECURITY_ADMIN_PASSWORD
+            {{- else }}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: {{ .Values.observability.grafana.adminPassword | quote }}
+            {{- end }}
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: provisioning-datasources
+              mountPath: /etc/grafana/provisioning/datasources
+            - name: provisioning-dashboards
+              mountPath: /etc/grafana/provisioning/dashboards
+            - name: dashboards
+              mountPath: /etc/grafana/dashboards
+      volumes:
+        - name: provisioning-datasources
+          configMap:
+            name: {{ $fullname }}-grafana
+            items:
+              - key: datasources.yaml
+                path: datasources.yaml
+        - name: provisioning-dashboards
+          configMap:
+            name: {{ $fullname }}-grafana
+            items:
+              - key: dashboards.yaml
+                path: dashboards.yaml
+        - name: dashboards
+          configMap:
+            name: {{ $fullname }}-grafana
+            items:
+              - key: gophprofile-overview.json
+                path: gophprofile-overview.json
+{{- end }}

@@ -61,13 +61,23 @@ func (t *Telemetry) Validate() error {
 
 // Worker holds background worker settings.
 type Worker struct {
-	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+	ShutdownTimeout    time.Duration `mapstructure:"shutdown_timeout"`
+	HealthFilePath     string        `mapstructure:"health_file_path"`
+	HealthFileInterval time.Duration `mapstructure:"health_file_interval"`
 }
 
 // Validate checks worker settings.
 func (w *Worker) Validate() error {
+	w.HealthFilePath = strings.TrimSpace(w.HealthFilePath)
+
 	if w.ShutdownTimeout <= 0 {
 		return fmt.Errorf("shutdown_timeout must be positive")
+	}
+	if w.HealthFilePath == "" {
+		return fmt.Errorf("health_file_path is required")
+	}
+	if w.HealthFileInterval <= 0 {
+		return fmt.Errorf("health_file_interval must be positive")
 	}
 	return nil
 }
@@ -194,6 +204,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("metrics.enabled", true)
 	v.SetDefault("metrics.collect_interval", "15s")
 	v.SetDefault("worker.shutdown_timeout", "10s")
+	v.SetDefault("worker.health_file_path", "/tmp/health")
+	v.SetDefault("worker.health_file_interval", "30s")
 	v.SetDefault("database.uri", "")
 	v.SetDefault("database.max_conns", 10)
 	v.SetDefault("database.min_conns", 2)
@@ -272,6 +284,10 @@ func finalizeConfig(cfg *Config, configPath string) error {
 
 	if err := cfg.Telemetry.Validate(); err != nil {
 		return fmt.Errorf("telemetry: %w", err)
+	}
+
+	if cfg.Telemetry.Enabled && cfg.Logger.Backend == "zap" {
+		return fmt.Errorf("logger: backend %q does not support OTLP log export; use slog", cfg.Logger.Backend)
 	}
 
 	if err := cfg.Metrics.Validate(); err != nil {

@@ -28,9 +28,9 @@ type Metrics interface {
 	RecordProcessing(ctx context.Context, status string, duration time.Duration)
 	RecordDelete(ctx context.Context, status string)
 	RecordHTTPRequest(ctx context.Context, method, route, statusClass string, duration time.Duration)
-	SetStorageBytes(bytes int64)
-	SetOutboxPending(count int64)
-	ObserveDBPool(stats DBPoolStats)
+	SetStorageBytes(ctx context.Context, bytes int64)
+	SetOutboxPending(ctx context.Context, count int64)
+	ObserveDBPool(ctx context.Context, stats DBPoolStats)
 }
 
 // MetricStatus maps an execution error to a bounded business metric status label.

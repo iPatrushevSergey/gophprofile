@@ -4,6 +4,65 @@
 
 ## Архитектура
 
+```mermaid
+flowchart TB
+  Client[Client]
+
+  subgraph k8s [Kubernetes]
+    Ingress[Ingress]
+
+    subgraph app [Application]
+      Server[server]
+      Processor[processor]
+    end
+
+    subgraph data [Data]
+      Postgres[(postgres)]
+      MinIO[(minio)]
+      RabbitMQ[rabbitmq]
+    end
+
+    Migrate[migrate]
+
+    subgraph obs [Observability]
+      OTEL[otel-collector]
+      Jaeger[jaeger]
+      Prometheus[prometheus]
+      Loki[loki]
+      Grafana[grafana]
+      Alertmanager[alertmanager]
+      AlertWebhook[alert-webhook]
+      NodeExporter[node-exporter]
+    end
+
+    Vault[Vault]
+    ESO[ESO]
+  end
+
+  Client --> Ingress
+  Ingress --> Server
+  Server --> Postgres
+  Server --> MinIO
+  Server --> RabbitMQ
+  RabbitMQ --> Processor
+  Processor --> Postgres
+  Processor --> MinIO
+  Server --> OTEL
+  Processor --> OTEL
+  OTEL --> Jaeger
+  OTEL --> Loki
+  OTEL --> Prometheus
+  Grafana --> Prometheus
+  Grafana --> Loki
+  Grafana --> Jaeger
+  Prometheus --> Alertmanager
+  Loki --> Alertmanager
+  Alertmanager --> AlertWebhook
+  Vault --> ESO
+  ESO -.-> Server
+  ESO -.-> Processor
+```
+
 Два сервиса — **`cmd/server`** (HTTP API) и **`cmd/processor`** (worker обработки изображений). Написаны по **Clean Architecture**: `presentation` → `application` → `domain` → `adapters`.
 
 Общая инфраструктура вынесена в **`app/internal/pkg`**, бизнес-модули не дублируют инфраструктурный код.
@@ -298,6 +357,8 @@ make run-processor
 
 ## REST API
 
+OpenAPI 3.0: [`api/openapi.yaml`](api/openapi.yaml).
+
 Базовый префикс: `/api/v1`. Аутентификация для защищённых маршрутов — заголовок **`X-User-ID`**.
 
 | Метод | Путь | Auth | Описание |
@@ -509,6 +570,104 @@ make observability-smoke
 
 ---
 
+## Kubernetes (Rancher Desktop)
+
+Helm chart: [`deploy/helm/gophprofile/`](deploy/helm/gophprofile/).
+
+### Что понадобится
+
+| Компонент | Назначение |
+|-----------|------------|
+| **Rancher Desktop** | Kubernetes + Traefik ingress |
+| **kubectl, helm, make, docker** | в PATH |
+
+---
+
+### Dev — пошагово
+
+Секреты заданы в `values-dev.yaml`, Vault не нужен.
+
+```bash
+# 1. Установка
+make helm-install-dev
+
+# 2. Дождаться готовности pod'ов
+kubectl get pods -n gophprofile -w
+
+# 3. Smoke test
+make k8s-smoke-dev
+```
+
+Ручная проверка:
+
+```bash
+curl -H "Host: gophprofile.local" http://127.0.0.1/health
+```
+
+Обновление / удаление:
+
+```bash
+make helm-upgrade-dev      # после изменений в коде/chart
+make helm-uninstall        # удалить release (PVC остаются)
+```
+
+---
+
+### Prod-local — пошагово
+
+Vault + External Secrets Operator + HPA + Traefik (без TLS).
+
+**Стек секретов** (один раз, или после `make vault-uninstall`):
+
+```bash
+# 1. Vault + ESO + bootstrap (KV, policy, K8s auth, ClusterSecretStore)
+make prod-secrets-stack
+
+# 2. Дождаться готовности
+kubectl wait -n vault --for=condition=ready pod/vault-0 --timeout=120s
+kubectl wait -n external-secrets --for=condition=ready pod \
+  -l app.kubernetes.io/name=external-secrets --timeout=120s
+
+# 3. Пароли для Vault KV
+cp deploy/vault/bootstrap/.env.vault.example .env.vault
+# значения по умолчанию совпадают с dev; для prod-local менять не обязательно
+
+# 4. Записать секреты в Vault
+make vault-seed
+
+# 5. Проверить ESO
+kubectl get clustersecretstore vault-backend
+```
+
+**Приложение:**
+
+```bash
+# 6. Если dev release уже стоит — сначала удалить
+make helm-uninstall
+
+# 7. Установка prod-local
+make helm-install-prod-local
+
+# 8. Дождаться pod'ов и ExternalSecret
+kubectl get pods,externalsecret -n gophprofile -w
+
+# 9. Smoke test
+make k8s-smoke-prod
+```
+
+---
+
+### Переключение dev ↔ prod-local
+
+```bash
+make helm-uninstall
+# при смене паролей RabbitMQ/Postgres — удалить PVC:
+kubectl delete pvc -n gophprofile --all
+make helm-install-dev          # или make helm-install-prod-local
+```
+
+---
+
 ## Тесты
 
 Пирамида: unit → contract → integration → component → e2e. Для contract, component, integration и e2e нужен **Docker** (testcontainers: Postgres + MinIO + RabbitMQ).
@@ -580,6 +739,25 @@ make docker-up          # полный стек в Docker
 make docker-down        # остановить compose
 make docker-ps          # статус контейнеров
 make docker-migrate     # migrate в Docker (ручной запуск)
+make observability-smoke # E2E smoke Docker observability stack
+make k8s-build-images   # собрать server/processor/migrate образы
+make k8s-import-images  # build + import образов в Rancher Desktop k3s
+make helm-install-dev   # dev install (build + helm)
+make helm-upgrade-dev   # dev upgrade
+make helm-install-prod-local  # prod-local install на RD (Vault + ESO)
+make helm-upgrade-prod-local  # prod-local upgrade
+make helm-install-prod  # prod install (CI, образы из registry)
+make helm-upgrade-prod  # prod upgrade
+make helm-uninstall     # удалить Helm release
+make k8s-smoke-dev      # E2E smoke dev
+make k8s-smoke-prod     # E2E smoke prod-local
+make prod-secrets-stack # Vault + ESO + bootstrap
+make vault-install      # установить Vault
+make vault-uninstall    # удалить Vault
+make vault-bootstrap    # KV, policy, K8s auth, ClusterSecretStore
+make vault-seed         # записать секреты в Vault из .env.vault
+make eso-install        # установить External Secrets Operator
+make eso-uninstall      # удалить ESO
 make test               # unit-тесты (см. раздел «Тесты»)
 make test-contract      # контракт server ↔ processor
 make test-integration   # postgres/minio/rabbitmq integration

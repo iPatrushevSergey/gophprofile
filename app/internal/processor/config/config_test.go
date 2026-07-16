@@ -29,10 +29,16 @@ func TestFinalizeConfig_ok(t *testing.T) {
 	cfg := Config{
 		Logger:    logger.Config{Level: "info", Backend: "slog", Format: "json"},
 		Telemetry: Telemetry{ServiceName: "gophprofile-processor", SampleRatio: 1},
-		Worker:    Worker{ShutdownTimeout: time.Second},
+		Worker: Worker{
+			ShutdownTimeout:    time.Second,
+			HealthFilePath:     "/tmp/health",
+			HealthFileInterval: 30 * time.Second,
+		},
 	}
 	require.NoError(t, finalizeConfig(&cfg, "app/configs/processor.yaml"))
 	assert.Equal(t, time.Second, cfg.Worker.ShutdownTimeout)
+	assert.Equal(t, "/tmp/health", cfg.Worker.HealthFilePath)
+	assert.Equal(t, 30*time.Second, cfg.Worker.HealthFileInterval)
 }
 
 func TestTelemetry_Validate(t *testing.T) {
@@ -41,6 +47,19 @@ func TestTelemetry_Validate(t *testing.T) {
 
 	bad := Telemetry{ServiceName: "gophprofile-processor", SampleRatio: 2}
 	assert.Error(t, bad.Validate())
+}
+
+func TestWorker_Validate(t *testing.T) {
+	w := Worker{
+		ShutdownTimeout:    time.Second,
+		HealthFilePath:     "  /tmp/health  ",
+		HealthFileInterval: 30 * time.Second,
+	}
+	require.NoError(t, w.Validate())
+	assert.Equal(t, "/tmp/health", w.HealthFilePath)
+
+	assert.Error(t, (&Worker{ShutdownTimeout: time.Second, HealthFileInterval: time.Second}).Validate())
+	assert.Error(t, (&Worker{ShutdownTimeout: time.Second, HealthFilePath: "/tmp/health"}).Validate())
 }
 
 func TestLoadConfig_defaultValues(t *testing.T) {
@@ -61,6 +80,8 @@ broker:
 	cfg, err := LoadConfig()
 	require.NoError(t, err)
 	assert.Equal(t, 10*time.Second, cfg.Worker.ShutdownTimeout)
+	assert.Equal(t, "/tmp/health", cfg.Worker.HealthFilePath)
+	assert.Equal(t, 30*time.Second, cfg.Worker.HealthFileInterval)
 	assert.Equal(t, "gophprofile", cfg.MinIO.Bucket)
 	assert.Equal(t, "avatars", cfg.Broker.Exchange)
 	assert.Equal(t, "avatar-processing", cfg.Broker.Queue)
@@ -128,6 +149,8 @@ func TestLoadConfig_viperDefaultsWithoutYAML(t *testing.T) {
 	cfg, err := LoadConfig()
 	require.NoError(t, err)
 	assert.Equal(t, 10*time.Second, cfg.Worker.ShutdownTimeout)
+	assert.Equal(t, "/tmp/health", cfg.Worker.HealthFilePath)
+	assert.Equal(t, 30*time.Second, cfg.Worker.HealthFileInterval)
 	assert.Equal(t, "info", cfg.Logger.Level)
 	assert.Equal(t, int32(10), cfg.DB.Pool.MaxConns)
 	assert.Equal(t, int32(2), cfg.DB.Pool.MinConns)

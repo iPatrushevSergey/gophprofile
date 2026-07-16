@@ -44,3 +44,5 @@ broker:
 
 worker:
   shutdown_timeout: "10s"
+  health_file_path: "/tmp/health"
+  health_file_interval: "30s"

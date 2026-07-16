@@ -13,4 +13,5 @@ type ProcessingUseCases interface {
 	ProcessUploadedUseCase() appport.UseCase[appdto.ProcessUploadedAvatarInput, struct{}]
 	PurgeDeletedUseCase() appport.UseCase[appdto.PurgeDeletedAvatarInput, struct{}]
 	CollectPeriodicMetricsUseCase() appport.UseCase[struct{}, struct{}]
+	RefreshHealthFileUseCase() appport.UseCase[struct{}, struct{}]
 }

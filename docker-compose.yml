@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   minio-init:
-    image: minio/mc:latest
+    image: minio/mc:RELEASE.2024-11-21T17-21-54Z
     depends_on:
       minio:
         condition: service_started
@@ -55,7 +55,6 @@ services:
     volumes:
       - ./deploy/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./deploy/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
-      - ./deploy/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
@@ -64,6 +63,23 @@ services:
       retries: 12
       start_period: 30s
     restart: unless-stopped
+
+  rabbitmq-init:
+    image: curlimages/curl:8.5.0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    volumes:
+      - ./deploy/rabbitmq/definitions.json:/topology/definitions.json:ro
+    entrypoint: >
+      /bin/sh -c "
+      curl -fsS -u $$RABBITMQ_DEFAULT_USER:$$RABBITMQ_DEFAULT_PASS
+        -H 'Content-Type: application/json'
+        -X POST --data-binary @/topology/definitions.json
+        http://rabbitmq:15672/api/definitions"
 
   jaeger:
     image: jaegertracing/all-in-one:1.64.0
@@ -202,6 +218,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      rabbitmq-init:
+        condition: service_completed_successfully
       minio-init:
         condition: service_completed_successfully
       migrate:
@@ -241,6 +259,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      rabbitmq-init:
+        condition: service_completed_successfully
       minio-init:
         condition: service_completed_successfully
       migrate:

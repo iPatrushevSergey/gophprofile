@@ -1,0 +1,55 @@
+imagePullPolicy: IfNotPresent
+
+externalSecrets:
+  enabled: false
+
+postgres:
+  password: gophprofile
+
+minio:
+  rootUser: minioadmin
+  rootPassword: minioadmin
+
+rabbitmq:
+  password: gophprofile
+
+server:
+  replicas: 1
+  image:
+    tag: latest
+  autoscaling:
+    enabled: false
+  env:
+    minioUseSSL: "false"
+    telemetryEnvironment: kubernetes-dev
+
+processor:
+  replicas: 1
+  image:
+    tag: latest
+  autoscaling:
+    enabled: false
+  env:
+    minioUseSSL: "false"
+    telemetryEnvironment: kubernetes-dev
+
+ingress:
+  enabled: true
+  className: traefik
+  host: gophprofile.local
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+  tls:
+    enabled: false
+    secretName: ""
+
+networkPolicy:
+  enabled: true
+  ingressControllerNamespace: kube-system
+
+observability:
+  grafana:
+    adminPassword: admin
+
+serviceMonitor:
+  enabled: false
